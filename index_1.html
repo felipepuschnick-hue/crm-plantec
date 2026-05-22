@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLANTEC CRM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1D9E75;--green-dark:#0F6E56;--green-light:#E1F5EE;--green-mid:#5DCAA5;--green-text:#085041;
+  --sidebar:#085041;--sidebar-hover:rgba(255,255,255,.1);
+  --red:#a32d2d;--red-light:#FCEBEB;--red-mid:#F09595;
+  --amber:#BA7517;--amber-light:#FAEEDA;--amber-mid:#FAC775;
+  --gray-50:#f8fafb;--gray-100:#f0f2f5;--gray-200:#e4e7ec;--gray-300:#d0d5dd;
+  --gray-500:#888;--gray-700:#444;--gray-900:#1a1a1a;
+  --radius-sm:6px;--radius-lg:14px;
+  --shadow:0 1px 4px rgba(0,0,0,.08);
+  --sw:210px;--sw-c:54px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--gray-100);color:var(--gray-900);min-height:100vh;font-size:14px}
+input,textarea,select,button{font-family:inherit;font-size:14px}
+input[type=text],input[type=date],input[type=url],input[type=email],input[type=password],textarea{width:100%;padding:9px 12px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);background:#fff;color:var(--gray-900);outline:none;transition:border-color .15s}
+input:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+select{width:100%;padding:9px 12px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);background:#fff;color:var(--gray-900);outline:none;cursor:pointer;font-size:14px;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+select:focus{border-color:var(--green)}
+textarea{resize:vertical;line-height:1.5}
+
+/* LOGIN */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--sidebar)}
+.login-box{background:#fff;border-radius:var(--radius-lg);padding:2.5rem;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+.login-logo{text-align:center;margin-bottom:1.5rem}
+.login-logo-icon{width:56px;height:56px;background:var(--green-light);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px}
+.login-logo h1{font-size:20px;font-weight:700;color:var(--sidebar)}
+.login-logo p{font-size:12px;color:var(--gray-500);margin-top:2px}
+.login-err{background:var(--red-light);color:var(--red);border:1px solid var(--red-mid);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;margin-bottom:10px;display:none}
+
+/* APP LAYOUT */
+#app-screen{display:none;flex-direction:row;height:100vh;overflow:hidden}
+.sidebar{width:var(--sw);background:var(--sidebar);display:flex;flex-direction:column;transition:width .25s;flex-shrink:0;overflow:hidden}
+.sidebar.col{width:var(--sw-c)}
+.sb-logo{padding:14px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1);min-height:60px;flex-shrink:0}
+.sb-logo-icon{width:32px;height:32px;background:var(--green-mid);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sb-logo-text{color:#fff;font-size:13px;font-weight:700;line-height:1.2}
+.sb-logo-sub{color:rgba(255,255,255,.5);font-size:10px}
+.sb-nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;flex:1;overflow-y:auto}
+.sbi{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:rgba(255,255,255,.7);cursor:pointer;transition:all .15s;white-space:nowrap;border:none;background:none;width:100%;text-align:left;font-size:13px;font-weight:500}
+.sbi:hover{background:var(--sidebar-hover);color:#fff}
+.sbi.active{background:rgba(255,255,255,.18);color:#fff}
+.sbi-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.sidebar.col .sbi-label,.sidebar.col .sb-logo-text,.sidebar.col .sb-logo-sub{display:none}
+.sb-footer{padding:10px 8px;border-top:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.sb-user{padding:8px 10px;color:rgba(255,255,255,.6);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar.col .sb-user{display:none}
+.sb-toggle{display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;border:none;background:none;width:100%;transition:all .15s}
+.sb-toggle:hover{background:var(--sidebar-hover);color:#fff}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:0 1.5rem;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.topbar-page{font-size:15px;font-weight:600}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow-y:auto;padding:1.5rem}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--radius-sm);border:1px solid var(--gray-300);background:#fff;color:var(--gray-900);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1}
+.btn:hover{background:var(--gray-50);border-color:#bbb}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff}
+.btn-green:hover{background:var(--green-dark)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{border-color:var(--red-mid);color:var(--red);background:#fff}
+.btn-danger:hover{background:var(--red-light)}
+.btn-full{width:100%;justify-content:center}
+
+/* CARDS */
+.card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;box-shadow:var(--shadow)}
+.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-500);margin-bottom:.6rem}
+.divider{border:none;border-top:1px solid #eee;margin:.9rem 0}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:1.25rem}
+.stat-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:12px;box-shadow:var(--shadow);text-align:center}
+.stat-num{font-size:22px;font-weight:700;line-height:1}
+.stat-label{font-size:11px;color:var(--gray-500);margin-top:3px}
+
+/* CLIENT CARDS */
+.client-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:.9rem 1.1rem;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;margin-bottom:10px;position:relative;overflow:hidden}
+.client-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.client-card.temp-frio::before{background:#378ADD}
+.client-card.temp-morno::before{background:#EF9F27}
+.client-card.temp-quente::before{background:var(--green)}
+.client-card.status-carteira::before{background:var(--green)}
+.client-card.status-inativo::before{background:var(--gray-500)}
+.client-card:hover{border-color:var(--green-mid);box-shadow:0 4px 16px rgba(29,158,117,.12);transform:translateY(-1px)}
+.new-lead-badge{background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;vertical-align:middle}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-frio{background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB}.badge-frio::before{background:#378ADD}
+.badge-morno{background:var(--amber-light);color:#633806;border:1px solid var(--amber-mid)}.badge-morno::before{background:var(--amber)}
+.badge-quente{background:#EAF3DE;color:#27500A;border:1px solid #97C459}.badge-quente::before{background:#639922}
+.badge-carteira{background:var(--green-light);color:var(--green-text);border:1px solid var(--green-mid)}.badge-carteira::before{background:var(--green)}
+.badge-inativo{background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-300)}.badge-inativo::before{background:var(--gray-500)}
+.badge-seg{background:var(--gray-100);color:var(--gray-700);border:1px solid var(--gray-200)}.badge-seg::before{display:none}
+.pb{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.ph{background:#FCEBEB;color:#a32d2d;border:1px solid #F09595}
+.pm{background:var(--amber-light);color:#92400e;border:1px solid #FCD34D}
+.pl{background:var(--gray-100);color:var(--gray-500);border:1px solid var(--gray-200)}
+
+/* FILTERS */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.filter-chip{padding:4px 12px;font-size:12px;border-radius:99px;cursor:pointer;border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-weight:500;transition:all .15s}
+.filter-chip:hover{border-color:var(--green);color:var(--green)}
+.filter-chip.active{background:var(--sidebar);color:#fff;border-color:var(--sidebar)}
+
+/* CHECKLIST */
+.checklist-bar{background:var(--gray-200);border-radius:3px;height:5px;overflow:hidden;margin-top:4px}
+.checklist-fill{height:100%;border-radius:3px;background:var(--green);transition:width .3s}
+
+/* DETAIL */
+.detail-wrap{display:grid;grid-template-columns:1fr 300px;gap:1.25rem;align-items:start}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin:.75rem 0}
+.info-row{display:flex;flex-direction:column;gap:3px}
+.info-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500)}
+.info-val{font-size:13px;font-weight:500}
+.info-val a{color:var(--green);text-decoration:none}
+.thermo-row{display:flex;gap:6px;margin:.5rem 0}
+.thermo-btn{flex:1;padding:6px;font-size:12px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--gray-300);background:#fff;color:var(--gray-500);transition:all .15s}
+.thermo-btn.sel-frio{background:#E6F1FB;color:#0C447C;border-color:#85B7EB}
+.thermo-btn.sel-morno{background:var(--amber-light);color:#633806;border-color:var(--amber-mid)}
+.thermo-btn.sel-quente{background:#EAF3DE;color:#27500A;border-color:#97C459}
+.status-actions{display:flex;gap:8px;margin-top:.75rem;flex-wrap:wrap}
+
+/* TIMELINE */
+.tl-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;margin-top:4px}
+.tl-dot.task{background:var(--amber)}
+.tl-date{font-size:11px;color:var(--gray-500);margin-bottom:2px}
+.tl-text{font-size:13px;line-height:1.4}
+
+/* TASKS */
+.task-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-200)}
+.task-item:last-child{border-bottom:none}
+.task-cb{width:16px;height:16px;cursor:pointer;accent-color:var(--green);flex-shrink:0;margin-top:2px}
+.task-text{font-size:13px;font-weight:500;line-height:1.4}
+.task-text.done{text-decoration:line-through;color:var(--gray-500)}
+.task-meta{font-size:11px;color:var(--gray-500);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.task-overdue{color:var(--red);font-weight:600}
+
+/* TASKS VIEW */
+.tv-item{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:.85rem 1rem;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:box-shadow .15s}
+.tv-item:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.tv-client{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-500);margin-bottom:3px}
+.tv-text{font-size:14px;font-weight:500;margin-bottom:5px}
+.tv-text.done{text-decoration:line-through;color:var(--gray-500)}
+.tv-due{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.tv-due.red{background:#FCEBEB;color:#a32d2d;border:1px solid #F09595}
+.tv-due.amber{background:var(--amber-light);color:#92400e;border:1px solid var(--amber-mid)}
+.tv-due.gray{background:var(--gray-100);color:var(--gray-500);border:1px solid var(--gray-200)}
+.tv-swrap{position:relative;flex:1}
+.tv-sicon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--gray-500);font-size:13px;pointer-events:none}
+.tv-sinput{width:100%;padding:8px 12px 8px 32px;border:1px solid var(--gray-300);border-radius:var(--radius-sm);background:#fff;outline:none;font-size:13px}
+.tv-sinput:focus{border-color:var(--green)}
+
+/* PRACTICES */
+.seg-tabs{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.seg-tab{padding:6px 14px;font-size:13px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--gray-300);background:#fff;color:var(--gray-700);font-weight:500;transition:all .15s}
+.seg-tab.active{background:var(--sidebar);color:#fff;border-color:var(--sidebar)}
+.practice-block h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--green-dark);margin-bottom:.5rem}
+.practice-item{display:flex;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--gray-200);line-height:1.4;align-items:flex-start}
+.practice-item:last-child{border-bottom:none}
+.practice-item.tool-item{flex-direction:column;gap:4px}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--green-mid);flex-shrink:0;margin-top:5px}
+.plink{font-size:12px;color:var(--green);text-decoration:none}
+.plink:hover{text-decoration:underline}
+.plinks{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.prod-table{width:100%;border-collapse:collapse;font-size:12px}
+.prod-table th{background:var(--gray-100);padding:6px 10px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;color:var(--gray-500);border-bottom:1px solid var(--gray-200)}
+.prod-table td{padding:6px 10px;border-bottom:1px solid var(--gray-200)}
+.prod-seg-hdr{background:var(--green-light);color:var(--green-text);font-weight:700;font-size:11px;text-transform:uppercase}
+
+/* DASHBOARD */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:1.5rem}
+.dash-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;box-shadow:var(--shadow)}
+.dash-num{font-size:28px;font-weight:700;line-height:1;margin-bottom:4px}
+.dash-label{font-size:12px;color:var(--gray-500);font-weight:500}
+.dash-sub{font-size:11px;color:var(--gray-500);margin-top:2px}
+.funnel-bar{display:flex;gap:6px;margin-top:10px;height:28px;border-radius:6px;overflow:hidden}
+.funnel-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transition:flex .3s;min-width:2px}
+.consultor-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-200);cursor:pointer}
+.consultor-row:last-child{border-bottom:none}
+.consultor-row:hover{background:var(--gray-50);margin:0 -1.25rem;padding:10px 1.25rem}
+.cons-avatar{width:34px;height:34px;border-radius:50%;background:var(--green-light);color:var(--green-dark);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cons-name{font-size:13px;font-weight:600}
+.cons-meta{font-size:11px;color:var(--gray-500);margin-top:1px}
+.progress-bar{background:var(--gray-200);border-radius:3px;height:5px;overflow:hidden;margin-top:4px;flex:1}
+.progress-fill{height:100%;border-radius:3px;background:var(--green)}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem}
+.overlay.hidden{display:none}
+.modal{background:#fff;border-radius:var(--radius-lg);padding:1.5rem;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal-lg{max-width:680px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:1.1rem}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:12px;font-weight:600;color:var(--gray-700)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.1rem}
+.empty-state{text-align:center;padding:2rem 1rem;color:var(--gray-500);font-size:13px}
+.loading{text-align:center;padding:2rem;color:var(--gray-500)}
+.cfg-sec{border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem}
+.cfg-sec-title{font-size:13px;font-weight:700;margin-bottom:.4rem}
+.cfg-sec-sub{font-size:12px;color:var(--gray-500);margin-bottom:.75rem;line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">🌿</div>
+      <h1>PLANTEC CRM</h1>
+      <p>Acesse com suas credenciais</p>
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <div class="form-group"><label>Usuário</label><input id="l-user" placeholder="seu.usuario" autocomplete="username"></div>
+    <div class="form-group" style="margin-bottom:1.25rem"><label>Senha</label><input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-green btn-full" id="btn-login" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <div class="sidebar" id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">🌿</div>
+      <div><div class="sb-logo-text">PLANTEC</div><div class="sb-logo-sub" id="sb-role-label">Consultor</div></div>
+    </div>
+    <div class="sb-nav" id="sb-nav"></div>
+    <div class="sb-footer">
+      <div class="sb-user" id="sb-user"></div>
+      <button class="sb-toggle" onclick="toggleSidebar()">◀</button>
+      <button class="sbi" onclick="doLogout()" style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px">⎋ Sair</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-page" id="topbar-title">Carregando...</div>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+    <div class="content" id="main-content"><div class="loading">Carregando...</div></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay"><div class="modal" id="modal-box"></div></div>
+
+<script>
+// ══════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════
+const SB_URL='https://tvhltubxbfbwmthngrae.supabase.co';
+const SB_KEY='sb_publishable_4pKJdz_kUqPGr9hwFDzVjQ_Nno3Z9WV';
+const {createClient}=supabase;
+const sb=createClient(SB_URL,SB_KEY);
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let curUser=null,curProfile=null;
+let curView='clientes',curClient=null,crmFilter='prospecto',segAtivo='monitoramento';
+let sidebarCol=false,tvSearch='',tvFilter='todas',tvShowDone=false,tvTimer=null;
+let dashConsultor=null; // gestor: consultor selecionado para drill-down
+
+// cache
+let cacheClients=[],cacheTasks=[],cacheNotes=[],cacheProdutos=[];
+let cacheProfiles=[];
+
+// ══════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════
+function nows(){return new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});}
+function dateStr(d){if(!d)return'';const p=d.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d;}
+function isOverdue(due){if(!due)return false;return new Date(due+'T23:59:59')<new Date();}
+function daysLeft(due){if(!due)return null;return Math.ceil((new Date(due+'T00:00:00')-new Date())/(864e5));}
+function initials(name){return(name||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function toast(msg,ok=true){
+  const t=document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:20px;right:20px;background:${ok?'var(--green)':'var(--red)'};color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.15)`;
+  t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+}
+
+// ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+async function doLogin(){
+  const username=document.getElementById('l-user').value.trim();
+  const password=document.getElementById('l-pass').value;
+  const err=document.getElementById('login-err');
+  const btn=document.getElementById('btn-login');
+  if(!username||!password){err.style.display='block';err.textContent='Preencha usuário e senha.';return;}
+  btn.disabled=true;btn.textContent='Entrando...';err.style.display='none';
+  // login direto pelo email: username@plantec.internal
+  const email=username+'@plantec.internal';
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error){
+    err.style.display='block';
+    err.textContent=error.message.includes('Invalid')?'Usuário ou senha incorretos.':'Erro ao entrar: '+error.message;
+    btn.disabled=false;btn.textContent='Entrar';return;
+  }
+  await initApp(data.user);
+}
+
+async function initApp(user){
+  curUser=user;
+  const {data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  curProfile=profile;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  document.getElementById('sb-user').textContent=profile.full_name||profile.username;
+  document.getElementById('sb-role-label').textContent=profile.role==='gestor'?'Gestor':'Consultor';
+  buildNav();
+  await loadData();
+  render();
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// Enter no login
+document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+// ══════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════
+function buildNav(){
+  const isGestor=curProfile.role==='gestor';
+  const navItems=isGestor?[
+    {key:'dashboard',icon:'📊',label:'Dashboard'},
+    {key:'consultores',icon:'👤',label:'Consultores'},
+    {key:'clientes',icon:'👥',label:'Clientes'},
+    {key:'tarefas',icon:'✅',label:'Tarefas'},
+    {key:'practices',icon:'📋',label:'Melhores Práticas'},
+    {key:'config',icon:'⚙',label:'Configurar'},
+  ]:[
+    {key:'clientes',icon:'👥',label:'Clientes'},
+    {key:'tarefas',icon:'✅',label:'Tarefas'},
+    {key:'practices',icon:'📋',label:'Melhores Práticas'},
+  ];
+  document.getElementById('sb-nav').innerHTML=navItems.map(n=>`<button class="sbi ${curView===n.key?'active':''}" onclick="navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`).join('');
+}
+
+function navTo(v){
+  curView=v;curClient=null;dashConsultor=null;
+  const labels={dashboard:'Dashboard',consultores:'Consultores',clientes:'Clientes',tarefas:'Tarefas',practices:'Melhores Práticas',config:'Configurar'};
+  document.getElementById('topbar-title').textContent=labels[v]||'';
+  buildNav();render();
+}
+function toggleSidebar(){sidebarCol=!sidebarCol;document.getElementById('sidebar').classList.toggle('col',sidebarCol);document.querySelector('.sb-toggle').textContent=sidebarCol?'▶':'◀';}
+
+// ══════════════════════════════════════════════
+// DATA LAYER
+// ══════════════════════════════════════════════
+async function loadData(){
+  const isGestor=curProfile.role==='gestor';
+  // clients
+  let cq=sb.from('clients').select('*').order('created_at',{ascending:false});
+  if(!isGestor) cq=cq.eq('user_id',curProfile.id);
+  const {data:clients}=await cq;
+  cacheClients=clients||[];
+  // tasks
+  const clientIds=cacheClients.map(c=>c.id);
+  if(clientIds.length>0){
+    const {data:tasks}=await sb.from('tasks').select('*').in('client_id',clientIds).order('created_at',{ascending:true});
+    cacheTasks=tasks||[];
+    const {data:notes}=await sb.from('notes').select('*').in('client_id',clientIds).order('created_at',{ascending:false});
+    cacheNotes=notes||[];
+  } else {cacheTasks=[];cacheNotes=[];}
+  // produtos
+  const {data:prods}=await sb.from('produtos_monitoramento').select('*').order('segmento');
+  cacheProdutos=prods||[];
+  // profiles (gestor only)
+  if(isGestor){
+    const {data:profiles}=await sb.from('profiles').select('*').order('full_name');
+    cacheProfiles=profiles||[];
+  }
+}
+
+function clientTasks(clientId){return cacheTasks.filter(t=>t.client_id===clientId);}
+function clientNotes(clientId){return cacheNotes.filter(n=>n.client_id===clientId);}
+function checklistP(clientId){const cl=clientTasks(clientId).filter(t=>t.is_checklist);if(!cl.length)return null;const done=cl.filter(t=>t.done).length;return{done,total:cl.length,pct:Math.round(done/cl.length*100)};}
+
+// ══════════════════════════════════════════════
+// RENDER ROUTER
+// ══════════════════════════════════════════════
+function render(){
+  const el=document.getElementById('main-content');
+  const ta=document.getElementById('topbar-actions');
+  ta.innerHTML='';
+  if(curView==='clientes'){
+    if(curProfile.role==='gestor'){
+      // gestor pode ver todos ou filtrar por consultor
+      if(dashConsultor){
+        ta.innerHTML=`<button class="btn btn-sm" onclick="dashConsultor=null;render()">← Todos os consultores</button>`;
+      }
+    } else {
+      // consultor tem botão configurar
+      ta.innerHTML=`<button class="btn" onclick="openModal('config')">⚙ Configurar</button>`;
+    }
+    el.innerHTML=curClient?renderDetail():renderList();
+  }
+  else if(curView==='tarefas') el.innerHTML=renderTarefas();
+  else if(curView==='practices') el.innerHTML=renderPractices(segAtivo);
+  else if(curView==='dashboard') el.innerHTML=renderDashboard();
+  else if(curView==='consultores') el.innerHTML=renderConsultores();
+  else if(curView==='config') el.innerHTML=renderConfig();
+}
+
+// ══════════════════════════════════════════════
+// CHECKLISTS
+// ══════════════════════════════════════════════
+const CHECKLISTS={
+  'Monitoramento':['Verificar CNAE Monitoramento','Verificar Cadastro Intelbras pelo CNPJ','Preencher Planilha Monitoramento','Apresentar Benefícios do Programa Monitoramento','Apresentar: Plantec Hoje, Plantec Pay, Locação, Agenciamento e InProject'],
+  'Portaria Remota':['Verificar Cadastro Intelbras pelo CNPJ','Solicitar vincular a Plantec como um dos Distribuidores Preferenciais no Portal Intelbras','Preencher Google Forms','Apresentar Benefícios do Programa Portaria Remota','Apresentar: Plantec Hoje, Locação, Agenciamento e InProject']
+};
+
+// ══════════════════════════════════════════════
+// CLIENT LIST
+// ══════════════════════════════════════════════
+function renderList(){
+  let all=cacheClients;
+  if(curProfile.role==='gestor'&&dashConsultor) all=all.filter(c=>c.user_id===dashConsultor);
+  const filtered=all.filter(c=>{
+    if(crmFilter==='frio') return c.temp==='frio'&&c.status==='prospecto';
+    if(crmFilter==='morno') return c.temp==='morno'&&c.status==='prospecto';
+    if(crmFilter==='quente') return c.temp==='quente'&&c.status==='prospecto';
+    if(crmFilter==='prospecto') return c.status==='prospecto';
+    if(crmFilter==='carteira') return c.status==='carteira';
+    if(crmFilter==='descarte') return c.status==='inativo';
+    return true;
+  });
+  const ot=all.reduce((a,c)=>a+clientTasks(c.id).filter(t=>!t.done&&isOverdue(t.due)).length,0);
+  const addBtn=curProfile.role==='gestor'?`<button class="btn btn-green" onclick="openModal('addClient')">+ Novo cliente</button>`:`<button class="btn btn-green" onclick="openModal('addClient')">+ Novo cliente</button>`;
+  return`<div class="stats-grid">
+  <div class="stat-card"><div class="stat-num">${all.length}</div><div class="stat-label">Total</div></div>
+  <div class="stat-card"><div class="stat-num" style="color:var(--green)">${all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length}</div><div class="stat-label">Quentes</div></div>
+  <div class="stat-card"><div class="stat-num" style="color:var(--green-dark)">${all.filter(c=>c.status==='carteira').length}</div><div class="stat-label">Carteira</div></div>
+  ${ot>0?`<div class="stat-card"><div class="stat-num" style="color:var(--red)">${ot}</div><div class="stat-label">Atrasadas</div></div>`:''}
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
+  <div class="filter-row" style="margin-bottom:0">
+    ${['prospecto','frio','morno','quente','carteira','descarte'].map(f=>`<button class="filter-chip ${crmFilter===f?'active':''}" onclick="setFilter('${f}')">${f==='prospecto'?'Prospect':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+  </div>
+  ${addBtn}
+</div>
+${filtered.length===0?`<div class="empty-state">Nenhum cliente nessa categoria.</div>`:filtered.map(c=>{
+  const ov=clientTasks(c.id).filter(t=>!t.done&&isOverdue(t.due)).length;
+  const cp=checklistP(c.id);
+  const consName=curProfile.role==='gestor'?`<span style="font-size:11px;color:var(--green);font-weight:600"> · ${(cacheProfiles.find(p=>p.id===c.user_id)||{}).full_name||'?'}</span>`:'';
+  return`<div class="client-card ${c.temp?'temp-'+c.temp:''} ${c.status==='carteira'?'status-carteira':c.status==='inativo'?'status-inativo':''}" onclick="openClient('${c.id}')">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+    <div><div style="font-size:15px;font-weight:600">${c.name}${consName} ${c.is_new_lead?'<span class="new-lead-badge">NOVO LEAD</span>':''}</div><div style="font-size:12px;color:var(--gray-500);margin-top:2px">${[c.segment,c.contact].filter(Boolean).join(' · ')}</div></div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
+      ${c.status==='carteira'?`<span class="badge badge-carteira">Carteira</span>`:c.status==='inativo'?`<span class="badge badge-inativo">Descarte</span>`:''}
+      ${c.temp?`<span class="badge badge-${c.temp}">${c.temp.charAt(0).toUpperCase()+c.temp.slice(1)}</span>`:''}
+      ${ov>0?`<span class="pb ph">⚠ ${ov} atrasada${ov>1?'s':''}</span>`:''}
+    </div>
+  </div>
+  ${cp?`<div style="margin-top:8px"><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--gray-500)">Checklist ${cp.done}/${cp.total}</span><span style="font-size:11px;color:var(--gray-500)">${cp.pct}%</span></div><div class="checklist-bar"><div class="checklist-fill" style="width:${cp.pct}%"></div></div></div>`:''}
+  ${c.cnpj||c.segment?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:center">${c.cnpj?`<span style="font-size:11px;color:var(--gray-500)">CNPJ: ${c.cnpj}</span>`:''} ${c.segment?`<span class="badge badge-seg">${c.segment}</span>`:''}</div>`:''}
+</div>`;}).join('')}`;
+}
+function setFilter(f){crmFilter=f;render();}
+function openClient(id){curClient=id;render();}
+
+// ══════════════════════════════════════════════
+// CLIENT DETAIL
+// ══════════════════════════════════════════════
+function renderDetail(){
+  const c=cacheClients.find(x=>x.id===curClient);if(!c)return'';
+  const tasks=clientTasks(c.id);
+  const cl=tasks.filter(t=>t.is_checklist),reg=tasks.filter(t=>!t.is_checklist);
+  const cp=checklistP(c.id);
+  const notes=clientNotes(c.id);
+  const tl=[...notes.map(n=>({...n,typ:'note',date:n.created_at})),...tasks.filter(t=>t.done&&t.done_at).map(t=>({id:t.id,text:'✓ '+t.text,date:t.done_at,typ:'task'}))].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const sk=Object.keys(PRACTICES).find(k=>PRACTICES[k].label===c.segment);
+  const canEdit=curProfile.role==='gestor'||c.user_id===curProfile.id;
+  return`<button class="btn btn-sm" style="margin-bottom:1rem" onclick="curClient=null;render()">← Voltar</button>
+<div class="detail-wrap">
+<div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:.6rem">
+      <div>
+        <div style="font-size:20px;font-weight:700">${c.name} ${c.is_new_lead?'<span class="new-lead-badge">NOVO LEAD</span>':''}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">
+          ${c.status==='carteira'?`<span class="badge badge-carteira">Carteira</span>`:c.status==='inativo'?`<span class="badge badge-inativo">Descarte</span>`:`<span class="badge badge-seg">Prospect</span>`}
+          ${c.temp?`<span class="badge badge-${c.temp}">${c.temp.charAt(0).toUpperCase()+c.temp.slice(1)}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+        ${sk?`<button class="btn btn-sm" style="color:var(--green-dark);border-color:var(--green-mid)" onclick="openModal('practices','${c.id}')">📋 Melhores Práticas</button>`:''}
+        ${canEdit?`<button class="btn btn-sm" onclick="openModal('editClient','${c.id}')">✏ Editar</button>`:''}
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="info-grid">
+      ${c.cnpj?`<div class="info-row"><span class="info-label">CNPJ</span><span class="info-val">${c.cnpj}</span></div>`:''}
+      ${c.cod_gestao?`<div class="info-row"><span class="info-label">Código Gestão</span><span class="info-val">${c.cod_gestao}</span></div>`:''}
+      ${c.segment?`<div class="info-row"><span class="info-label">Segmento</span><span class="info-val">${c.segment}</span></div>`:''}
+      ${c.contact?`<div class="info-row"><span class="info-label">Contato</span><span class="info-val">${c.contact}</span></div>`:''}
+      ${c.cargo?`<div class="info-row"><span class="info-label">Função / Cargo</span><span class="info-val">${c.cargo}</span></div>`:''}
+      ${c.phone?`<div class="info-row"><span class="info-label">Telefone / e-mail</span><span class="info-val">${c.phone}</span></div>`:''}
+      ${c.site?`<div class="info-row"><span class="info-label">Site</span><span class="info-val"><a href="${c.site}" target="_blank">${c.site}</a></span></div>`:''}
+      ${c.origem?`<div class="info-row"><span class="info-label">Origem do lead</span><span class="info-val">${c.origem}</span></div>`:''}
+    </div>
+    ${canEdit?`<hr class="divider">
+    <div class="section-label">Termômetro</div>
+    <div class="thermo-row">
+      <button class="thermo-btn ${c.temp==='frio'?'sel-frio':''}" onclick="setTemp('${c.id}','frio')">❄ Frio</button>
+      <button class="thermo-btn ${c.temp==='morno'?'sel-morno':''}" onclick="setTemp('${c.id}','morno')">☀ Morno</button>
+      <button class="thermo-btn ${c.temp==='quente'?'sel-quente':''}" onclick="setTemp('${c.id}','quente')">🔥 Quente</button>
+    </div>
+    ${c.status!=='carteira'&&c.status!=='inativo'?`<div class="status-actions"><button class="btn btn-sm btn-green" onclick="setStatus('${c.id}','carteira')">✓ Avançar para carteira</button><button class="btn btn-sm btn-danger" onclick="setStatus('${c.id}','inativo')">Enviar para descarte</button></div>`:''}`:''
+    }
+  </div>
+
+  ${cp?`<div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <div class="section-label" style="margin-bottom:0">Checklist ${c.segment} (${cp.done}/${cp.total})</div>
+      <span style="font-size:13px;font-weight:700;color:${cp.pct===100?'var(--green)':'var(--gray-500)'}">${cp.pct}%</span>
+    </div>
+    <div class="checklist-bar" style="height:7px;margin-bottom:10px"><div class="checklist-fill" style="width:${cp.pct}%"></div></div>
+    ${cl.map(t=>`<div class="task-item">
+      <input type="checkbox" class="task-cb" ${t.done?'checked':''} ${canEdit?'':'disabled'} onchange="toggleTask('${t.id}','${c.id}',this.checked)">
+      <div style="flex:1"><div class="task-text ${t.done?'done':''}">${t.text}</div>${t.due?`<div class="task-meta"><span class="${isOverdue(t.due)&&!t.done?'task-overdue':''}">📅 ${dateStr(t.due)}${isOverdue(t.due)&&!t.done?' ⚠':''}</span></div>`:''}</div>
+    </div>`).join('')}
+  </div>`:''}
+
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="section-label" style="margin-bottom:0">Tarefas (${reg.filter(t=>!t.done).length}/${reg.length})</div>
+      ${canEdit?`<button class="btn btn-green btn-sm" onclick="openModal('addTask','${c.id}')">+ Nova</button>`:''}
+    </div>
+    ${reg.length===0?`<div class="empty-state" style="padding:.75rem">Nenhuma tarefa ainda.</div>`:reg.map(t=>{
+      const ov=!t.done&&isOverdue(t.due);
+      return`<div class="task-item">
+        <input type="checkbox" class="task-cb" ${t.done?'checked':''} ${canEdit?'':'disabled'} onchange="toggleTask('${t.id}','${c.id}',this.checked)">
+        <div style="flex:1"><div class="task-text ${t.done?'done':''}">${t.text}</div><div class="task-meta">${t.priority?`<span class="pb ${t.priority==='alta'?'ph':t.priority==='media'?'pm':'pl'}">● ${t.priority.charAt(0).toUpperCase()+t.priority.slice(1)}</span>`:''} ${t.due?`<span class="${ov?'task-overdue':''}">📅 ${dateStr(t.due)}${ov?' ⚠':''}</span>`:''}</div></div>
+        ${canEdit?`<button class="btn btn-sm btn-danger" style="padding:3px 8px" onclick="deleteTask('${t.id}','${c.id}')">✕</button>`:''}
+      </div>`;}).join('')}
+  </div>
+</div>
+
+<div class="card" style="position:sticky;top:0;max-height:calc(100vh - 100px);overflow-y:auto">
+  <div class="section-label">Linha do tempo</div>
+  ${canEdit?`<div style="margin-bottom:10px">
+    <textarea id="tl-input" placeholder="Registrar anotação..." rows="2" style="font-size:12px;margin-bottom:6px"></textarea>
+    <button class="btn btn-sm btn-green" onclick="addNote('${c.id}')">Registrar</button>
+  </div><hr class="divider" style="margin:.5rem 0">`:''}
+  ${tl.length===0?`<div class="empty-state" style="padding:1rem">Nenhum registro ainda.</div>`:tl.map(item=>`<div class="tl-item"><div class="tl-dot ${item.typ==='task'?'task':''}"></div><div><div class="tl-date">${new Date(item.date).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div><div class="tl-text">${item.text}</div></div></div>`).join('')}
+</div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════
+// TAREFAS VIEW
+// ══════════════════════════════════════════════
+function renderTarefas(){
+  let allClients=cacheClients;
+  if(curProfile.role==='gestor'&&dashConsultor) allClients=allClients.filter(c=>c.user_id===dashConsultor);
+  const clientIds=new Set(allClients.map(c=>c.id));
+  const allT=[];
+  cacheTasks.forEach(t=>{
+    if(!clientIds.has(t.client_id))return;
+    if(!tvShowDone&&t.done)return;
+    const c=cacheClients.find(x=>x.id===t.client_id)||{};
+    if(tvSearch&&!(c.name+' '+t.text).toLowerCase().includes(tvSearch.toLowerCase()))return;
+    if(tvFilter==='atrasadas'&&(!isOverdue(t.due)||t.done))return;
+    if(tvFilter==='alta'&&t.priority!=='alta')return;
+    if(tvFilter==='pendentes'&&t.done)return;
+    allT.push({...t,clientName:c.name,clientSeg:c.segment});
+  });
+  allT.sort((a,b)=>{if(a.done&&!b.done)return 1;if(!a.done&&b.done)return-1;const ad=a.due?new Date(a.due):null,bd=b.due?new Date(b.due):null;if(!ad&&!bd)return 0;if(!ad)return 1;if(!bd)return-1;return ad-bd;});
+  const pending=cacheTasks.filter(t=>clientIds.has(t.client_id)&&!t.done).length;
+  return`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
+  <div class="tv-swrap"><span class="tv-sicon">🔍</span><input class="tv-sinput" id="tv-si" placeholder="Buscar..." value="${tvSearch}" oninput="tvSearchDebounce(this.value)"></div>
+  ${['todas','pendentes','atrasadas','alta'].map(f=>`<button class="filter-chip ${tvFilter===f?'active':''}" onclick="tvFilter='${f}';render()">${f==='alta'?'Prioridade Alta':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+  <button class="filter-chip ${tvShowDone?'active':''}" onclick="tvShowDone=!tvShowDone;render()">Concluídas</button>
+  <span style="margin-left:auto;font-size:13px;color:var(--gray-500);font-weight:500">${pending} pendente${pending!==1?'s':''}</span>
+</div>
+${allT.length===0?`<div class="empty-state">Nenhuma tarefa encontrada.</div>`:allT.map(t=>{
+  const ov=!t.done&&isOverdue(t.due);const dl=daysLeft(t.due);
+  let dc='gray',dl2='';
+  if(t.due){if(ov){dc='red';dl2='⚠ Atrasada';}else if(dl===0){dc='amber';dl2='Hoje';}else if(dl===1){dc='amber';dl2='Amanhã';}else{dl2=dateStr(t.due);}}
+  return`<div class="tv-item">
+  <input type="checkbox" class="task-cb" ${t.done?'checked':''} onchange="event.stopPropagation();toggleTask('${t.id}','${t.client_id}',this.checked)">
+  <div style="flex:1;cursor:pointer" onclick="goToClient('${t.client_id}')">
+    <div class="tv-client">${t.clientName||'?'}${t.clientSeg?' · '+t.clientSeg:''}</div>
+    <div class="tv-text ${t.done?'done':''}">${t.text}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      ${t.priority?`<span class="pb ${t.priority==='alta'?'ph':t.priority==='media'?'pm':'pl'}">● ${t.priority.charAt(0).toUpperCase()+t.priority.slice(1)}</span>`:''}
+      ${t.due?`<span class="tv-due ${dc}">📅 ${dl2||dateStr(t.due)}</span>`:''}
+      ${t.is_checklist?`<span class="pb pl">Checklist</span>`:''}
+    </div>
+  </div>
+</div>`;}).join('')}`;
+}
+function tvSearchDebounce(v){clearTimeout(tvTimer);tvTimer=setTimeout(()=>{tvSearch=v;render();const i=document.getElementById('tv-si');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},400);}
+function goToClient(id){curView='clientes';curClient=id;buildNav();render();}
+
+// ══════════════════════════════════════════════
+// DASHBOARD (GESTOR)
+// ══════════════════════════════════════════════
+function renderDashboard(){
+  const all=cacheClients;
+  const allT=cacheTasks;
+  const now=new Date();
+  const sevenDaysAgo=new Date(now-7*864e5);
+
+  // Indicadores gerais
+  const totalClients=all.length;
+  const totalProspecto=all.filter(c=>c.status==='prospecto').length;
+  const totalCarteira=all.filter(c=>c.status==='carteira').length;
+  const totalDescarte=all.filter(c=>c.status==='inativo').length;
+  const taxaConversao=totalClients>0?Math.round(totalCarteira/totalClients*100):0;
+
+  // Tarefas
+  const tarefasConcluidas=allT.filter(t=>t.done&&!t.is_checklist);
+  const noPrazo=tarefasConcluidas.filter(t=>!t.due||new Date(t.done_at||0)<=new Date(t.due+'T23:59:59')).length;
+  const pctNoPrazo=tarefasConcluidas.length>0?Math.round(noPrazo/tarefasConcluidas.length*100):0;
+  const travadas=allT.filter(t=>!t.done&&!t.is_checklist&&t.updated_at&&new Date(t.updated_at)<sevenDaysAgo).length;
+
+  // Checklist por segmento
+  const segsComChecklist=['Monitoramento','Portaria Remota'];
+  const checklistSegs=segsComChecklist.map(seg=>{
+    const clientsSeg=all.filter(c=>c.segment===seg);
+    const total=clientsSeg.reduce((a,c)=>a+cacheTasks.filter(t=>t.client_id===c.id&&t.is_checklist).length,0);
+    const done=clientsSeg.reduce((a,c)=>a+cacheTasks.filter(t=>t.client_id===c.id&&t.is_checklist&&t.done).length,0);
+    const pct=total>0?Math.round(done/total*100):0;
+    return{seg,done,total,pct};
+  });
+
+  // Por consultor
+  const consultores=cacheProfiles.filter(p=>p.role==='consultor'&&p.active);
+
+  return`<div class="dash-grid">
+  <div class="dash-card"><div class="dash-num">${totalClients}</div><div class="dash-label">Total de clientes</div><div class="dash-sub">${totalProspecto} prospects · ${totalCarteira} carteira</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:var(--green)">${taxaConversao}%</div><div class="dash-label">Taxa de conversão</div><div class="dash-sub">Prospect → Carteira</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${pctNoPrazo>=70?'var(--green)':pctNoPrazo>=40?'var(--amber)':'var(--red)'}">${pctNoPrazo}%</div><div class="dash-label">Tarefas no prazo</div><div class="dash-sub">${noPrazo} de ${tarefasConcluidas.length} concluídas</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${travadas===0?'var(--green)':'var(--amber)'}">${travadas}</div><div class="dash-label">Tarefas travadas</div><div class="dash-sub">Sem movimentação +7 dias</div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
+  <div class="card">
+    <div class="section-label">Funil de clientes</div>
+    <div class="funnel-bar">
+      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-label">Checklist por segmento</div>
+    ${checklistSegs.map(s=>`<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:12px;font-weight:600">${s.seg}</span>
+        <span style="font-size:12px;font-weight:700;color:${s.pct>=70?'var(--green)':s.pct>=40?'var(--amber)':'var(--red)'}">${s.pct}%</span>
+      </div>
+      <div class="checklist-bar" style="height:7px"><div class="checklist-fill" style="width:${s.pct}%"></div></div>
+      <div style="font-size:11px;color:var(--gray-500);margin-top:2px">${s.done} de ${s.total} tarefas concluídas</div>
+    </div>`).join('')}
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-label">Consultores</div>
+  ${consultores.length===0?`<div class="empty-state">Nenhum consultor cadastrado.</div>`:consultores.map(p=>{
+    const pClients=all.filter(c=>c.user_id===p.id);
+    const pTasks=cacheTasks.filter(t=>pClients.some(c=>c.id===t.client_id)&&!t.is_checklist);
+    const pDone=pTasks.filter(t=>t.done);
+    const pNoPrazo=pDone.filter(t=>!t.due||new Date(t.done_at||0)<=new Date(t.due+'T23:59:59')).length;
+    const pct=pDone.length>0?Math.round(pNoPrazo/pDone.length*100):0;
+    const pTravadas=pTasks.filter(t=>!t.done&&t.updated_at&&new Date(t.updated_at)<sevenDaysAgo).length;
+    return`<div class="consultor-row" onclick="drillConsultor('${p.id}')">
+      <div class="cons-avatar">${initials(p.full_name||p.username)}</div>
+      <div style="flex:1">
+        <div class="cons-name">${p.full_name||p.username}</div>
+        <div class="cons-meta">${pClients.length} clientes · ${pClients.filter(c=>c.status==='carteira').length} carteira · ${pTasks.filter(t=>!t.done).length} tarefas pendentes${pTravadas>0?` · <span style="color:var(--amber)">${pTravadas} travadas</span>`:''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div style="font-size:11px;color:var(--gray-500)">Tarefas no prazo</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}"></div></div>
+          <span style="font-size:11px;font-weight:700;color:${pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}">${pct}%</span>
+        </div>
+      </div>
+      <span style="font-size:12px;color:var(--green)">Ver clientes →</span>
+    </div>`;
+  }).join('')}
+</div>`;
+}
+
+function drillConsultor(uid){dashConsultor=uid;curView='clientes';buildNav();render();}
+
+// ══════════════════════════════════════════════
+// CONSULTORES (GESTOR)
+// ══════════════════════════════════════════════
+function renderConsultores(){
+  const consultores=cacheProfiles.filter(p=>p.role==='consultor');
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+  <div style="font-size:15px;font-weight:600">${consultores.length} consultor${consultores.length!==1?'es':''}</div>
+  <button class="btn btn-green" onclick="openModal('addConsultor')">+ Novo consultor</button>
+</div>
+${consultores.length===0?`<div class="empty-state">Nenhum consultor cadastrado.</div>`:consultores.map(p=>`<div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:14px">
+  <div class="cons-avatar" style="width:42px;height:42px;font-size:16px">${initials(p.full_name||p.username)}</div>
+  <div style="flex:1">
+    <div style="font-size:14px;font-weight:600">${p.full_name||p.username}</div>
+    <div style="font-size:12px;color:var(--gray-500)">@${p.username} · ${p.active?'Ativo':'Inativo'}</div>
+  </div>
+  <button class="btn btn-sm" onclick="openModal('editConsultor','${p.id}')">✏ Editar</button>
+</div>`).join('')}`;
+}
+
+// ══════════════════════════════════════════════
+// CONFIG (GESTOR)
+// ══════════════════════════════════════════════
+function renderConfig(){
+  return`<div class="cfg-sec">
+  <div class="cfg-sec-title">1. Enviar Leads para Consultor</div>
+  <div class="cfg-sec-sub">Importe Excel no formato padrão (CNPJ, Nome da Empresa, Site, Segmento, Origem do Lead, Contato, Telefone, Codigo Gestao). Selecione o consultor antes de subir o arquivo.</div>
+  <div class="form-group" style="max-width:280px;margin-bottom:10px">
+    <label>Consultor destino</label>
+    <select id="cfg-cons">${cacheProfiles.filter(p=>p.role==='consultor'&&p.active).map(p=>`<option value="${p.id}">${p.full_name||p.username}</option>`).join('')}</select>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <label class="btn btn-green" style="cursor:pointer">📤 Selecionar arquivo Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importLeads(event)"></label>
+    <button class="btn" onclick="downloadModeloLeads()">📥 Baixar Modelo</button>
+  </div>
+</div>
+<div class="cfg-sec">
+  <div class="cfg-sec-title">2. Atualizar Lista de Produtos — Monitoramento</div>
+  <div class="cfg-sec-sub">Importe o Excel de produtos (Código, Descrição, Segmento). A lista anterior será substituída completamente.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <label class="btn btn-green" style="cursor:pointer">📦 Selecionar arquivo Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importProdutos(event)"></label>
+    <button class="btn" onclick="downloadModeloProdutos()">📥 Baixar Modelo</button>
+    ${cacheProdutos.length>0?`<span style="font-size:12px;color:var(--green)">✓ ${cacheProdutos.length} produtos carregados</span>`:''}
+  </div>
+</div>
+<div class="cfg-sec">
+  <div class="cfg-sec-title">3. Importar backup offline</div>
+  <div class="cfg-sec-sub">Suba o JSON exportado pelo app offline. Os dados serão importados para o consultor selecionado acima.</div>
+  <label class="btn" style="cursor:pointer">📂 Selecionar JSON<input type="file" accept=".json" style="display:none" onchange="importOfflineBackup(event)"></label>
+</div>`;
+}
+
+// ══════════════════════════════════════════════
+// PRACTICES
+// ══════════════════════════════════════════════
+const FRETE={t:'Frete e Entrega',b:'Frete grátis em pedidos acima de R$300,00. Entrega no mesmo dia para pedidos até as 10h (Plantec Hoje) e em 24h após esse horário na RMC (consultar cidades e prazos).',links:[]};
+const TREIN={t:'Treinamentos',b:'Oferecemos treinamentos atualizados, comerciais, técnicos e mão na massa. Também oferecemos treinamento exclusivo In Company, onde a Intelbras realiza o treinamento na estrutura do cliente ou na nossa estrutura. Quórum mínimo de 8 participantes.',links:[{l:'📅 Calendário de treinamentos',u:'https://institucional.plantec.com/treinamentos-e-eventos/'}]};
+
+const PRACTICES={
+  monitoramento:{label:'Monitoramento',
+    abordagem:['A PLANTEC atende exclusivamente revendedores, instaladores e integradores — nunca o cliente final.','Apresente a PLANTEC como distribuidora completa: segurança eletrônica, alarmes, sensores, controle de acesso, câmeras IP, cabeamento estruturado, fibra óptica e energia — tudo em um só lugar.','Explore a dor central: Competição com preços no e-commerce, quebras de estoque, dificuldade em escalar contratos.','Posicione a unidade de Campinas como ponto de atendimento próximo — agilidade na entrega e suporte local.'],
+    ferramentas:[{t:'Programa Intelbras – Empresas de Monitoramento',b:'Para empresas cadastradas no programa de canais Intelbras, há 10% de desconto exclusivo na lista de itens elegíveis (Centrais 2018 E Smart, AMT 1000, diversos Sensores, Câmeras VIPW Wifi e Baterias de Alarme). Verifique se o cliente já é cadastrado pelo CNPJ.',links:[{l:'🔗 Consultar cadastro Intelbras',u:'https://portalsouparceiro.intelbras.com.br/formulario-cadastro'},{l:'📝 Preencher Forms',u:'https://forms.gle/Bi4T9aK2SRAJbXsZ9'},{l:'📦 Ver produtos elegíveis',a:'openProducts'}]},{t:'PlantecPay',b:'Solução de pagamento com split automático. Venda no cartão em 4x sem custo de taxas. Parcelamento em até 21x.',links:[{l:'🔗 Simular e solicitar adesão',u:'https://www.plantecpay.com'}]},{t:'InProject – Time de Projetos',b:'Para oportunidades complexas: registramos junto ao fabricante, envolvemos nosso time técnico, definimos topologia, realizamos POC e homologações.',links:[]},{t:'Formas de Pagamento',b:'PIX, Cartão de Crédito/Débito, Boleto em 3x sem juros ou até 12x. No cartão: até 3x sem juros ou até 21x.',links:[]},{t:'Locação Plantec',b:'Locação de 12 a 60 meses. Duas modalidades: (1) empresa loca para re-locar; (2) loca para o cliente final comissionando a empresa.',links:[]},TREIN,FRETE],
+    regras:['Não oferecer desconto sem aprovação do supervisor comercial.','Consultar CNAE (8020-0/01), CNPJ no portal Intelbras e preencher o Forms são etapas obrigatórias antes de apresentar o desconto de 10%.','Registrar todas as interações no sistema.','Envolver o InProject apenas após identificar oportunidade com escopo técnico complexo.'],
+    dicas:['Pergunte sobre a quantidade de contratos ativos e a meta de crescimento.','Verifique se o cliente já usa Intelbras e se está cadastrado no programa.','Identifique o decisor de parcerias, fornecimento e compras — muitas vezes é diferente do técnico responsável ou do secretário que atendeu a ligação.']
+  },
+  portaria:{label:'Portaria Remota',
+    abordagem:['A PLANTEC atende exclusivamente revendedores, instaladores e integradores — nunca o cliente final.','Apresente a PLANTEC como distribuidora completa: segurança eletrônica, alarmes, sensores, controle de acesso, câmeras IP, cabeamento estruturado, fibra óptica e energia — tudo em um só lugar.','Explore a dor central: Necessidade de prazos alongados para equilíbrio do fluxo de caixa, portfólio completo e estoque pronta entrega, ferramentas como a Locação.','Posicione a unidade de Campinas como ponto de atendimento próximo — agilidade na entrega e suporte local.'],
+    ferramentas:[{t:'Programa Intelbras – Portaria Remota',b:'Para empresas validadas pelo formulário como Empresa de Portaria Remota, há de 4% a 8% de desconto exclusivo e prazo de pagamento de até 10x sem juros em todo o portfólio da Intelbras.',links:[{l:'🔗 Consultar cadastro Intelbras',u:'https://portalsouparceiro.intelbras.com.br/formulario-cadastro'},{l:'📝 Forms Portaria Remota',u:'https://pt.surveymonkey.com/r/cadastro_portaria_remota'}]},{t:'PlantecPay',b:'Solução de pagamento com split automático. Venda no cartão em 4x sem custo de taxas. Parcelamento em até 21x.',links:[{l:'🔗 Simular e solicitar adesão',u:'https://www.plantecpay.com'}]},{t:'InProject – Time de Projetos',b:'Para oportunidades complexas: registramos junto ao fabricante, envolvemos nosso time técnico, definimos topologia, realizamos POC e homologações.',links:[]},{t:'Formas de Pagamento',b:'PIX, Cartão de Crédito/Débito, Boleto em 3x sem juros ou até 12x. No cartão: até 3x sem juros ou até 21x.',links:[]},{t:'Locação Plantec',b:'Locação de 12 a 60 meses. Duas modalidades: (1) empresa loca para re-locar; (2) loca para o cliente final comissionando a empresa.',links:[]},TREIN,FRETE],
+    regras:['Não oferecer desconto sem aprovação do supervisor comercial.','Consultar o CNPJ no portal Intelbras, solicitar o vínculo de Distribuidor Preferencial para a Plantec e preencher o Forms são etapas obrigatórias. Dúvidas consultar o Uriel Garcia (Intelbras).','Registrar todas as interações no sistema.','Envolver o InProject apenas após identificar oportunidade com escopo técnico complexo.'],
+    dicas:['Pergunte sobre a quantidade de contratos ativos e a meta de crescimento.','Verifique se o cliente já usa Intelbras e se está cadastrado no programa.','Ofereça a locação, é uma ferramenta muito poderosa para esse segmento.','Identifique o decisor de parcerias, fornecimento e compras — muitas vezes é diferente do técnico responsável ou do secretário que atendeu a ligação.']
+  },
+  incendio:{label:'Incêndio',abordagem:['Inicie com compliance: normas ABNT e exigências do Corpo de Bombeiros são obrigação legal.','Reforce a responsabilidade civil do responsável pelo imóvel.','Demonstre a vantagem de fornecedor único.','Solicite o AVCB vigente logo na primeira reunião.'],ferramentas:[{t:'InProject',b:'Acompanhamos desde a planta baixa até a aprovação no CBMSP.',links:[]},{t:'Locação Plantec',b:'Locação de sistemas de detecção de 12 a 60 meses.',links:[]},{t:'Formas de Pagamento',b:'Boleto em 3x sem juros, cartão em até 21x.',links:[]}],regras:['Nunca iniciar instalação sem planta baixa aprovada.','Apresentar ART ou documentação técnica habilitada.','Verificar aprovação prévia do CBMSP.'],dicas:['Verifique idade e tipo de edificação.','Sistemas homologados ABNT NBR 17240 são exigência.','Manutenção preventiva anual — ofereça como recorrente.']},
+  instalador:{label:'Instalador',abordagem:['O instalador precisa de agilidade: estoque disponível e suporte rápido.','Portfólio completo em um único pedido.','Unidade de Campinas facilita retirada e entrega regional.'],ferramentas:[{t:'PlantecPay',b:'Venda no cartão em 4x sem custo de taxas.',links:[{l:'🔗 Simular e solicitar adesão',u:'https://www.plantecpay.com'}]},{t:'Formas de Pagamento',b:'PIX, Cartão, Boleto 3x sem juros, até 12x.',links:[]}],regras:['Confirmar estoque antes de fechar prazo.','Registrar perfil de compra.','Não prometer prazo sem confirmar com logística.'],dicas:['Pergunte quais fabricantes ele mais trabalha.','Ofereça kit demonstração.','Identifique clientes que podem evoluir.']},
+  integrador:{label:'Integrador',abordagem:['O integrador trabalha com projetos complexos.','Destaque o InProject: registro, visitas e homologações.','Portfólio amplo: segurança, cabeamento, fibra, energia e comunicação.'],ferramentas:[{t:'InProject',b:'Registro no fabricante, visitas técnicas, topologia, POC e homologação.',links:[]},{t:'PlantecPay',b:'Para projetos de alto valor: até 21x.',links:[{l:'🔗 Simular e solicitar adesão',u:'https://www.plantecpay.com'}]},{t:'Locação Plantec',b:'Para integradores que querem oferecer OPEX: 12 a 60 meses.',links:[]}],regras:['Envolver InProject desde o início.','Registrar o projeto junto ao fabricante o quanto antes.','Confirmar budget antes de mobilizar.'],dicas:['Pergunte sobre projetos em andamento.','Ofereça reunião conjunta com o time técnico.']},
+  outros:{label:'Outros',abordagem:['Entenda o problema antes de apresentar soluções.','Posicione a PLANTEC como parceiro de longo prazo.'],ferramentas:[{t:'PlantecPay',b:'Parcelamento facilitado.',links:[{l:'🔗 Simular e solicitar adesão',u:'https://www.plantecpay.com'}]},{t:'Locação Plantec',b:'Alternativa OPEX.',links:[]},{t:'InProject',b:'Para projetos complexos.',links:[]}],regras:['Registrar interações.','Escalar para técnico se necessário.'],dicas:['Identifique o decisor real.','Confirme pipeline futuro.']}
+};
+
+function renderPractices(s,inModal){
+  return`<div class="seg-tabs">${Object.entries(PRACTICES).map(([k,v])=>`<button class="seg-tab ${s===k?'active':''}" onclick="${inModal?`swapPrac('${k}')`:` setSeg('${k}')`}">${v.label}</button>`).join('')}</div><div id="prac-body">${renderPracticesBody(s)}</div>`;
+}
+function renderPracticesBody(s){
+  const p=PRACTICES[s];if(!p)return'';
+  return`<div class="card">
+  <div class="practice-block" style="margin-bottom:1rem"><h3>Abordagem ideal</h3>${p.abordagem.map(i=>`<div class="practice-item"><div class="pdot"></div><span>${i}</span></div>`).join('')}</div>
+  <hr class="divider">
+  <div class="practice-block" style="margin-bottom:1rem"><h3>Ferramentas e diferenciais PLANTEC</h3>${p.ferramentas.map(f=>`<div class="practice-item tool-item"><strong style="font-size:13px;color:var(--green-dark)">${f.t}</strong><span style="font-size:13px;line-height:1.5;color:var(--gray-700)">${f.b}</span>${f.links&&f.links.length?`<div class="plinks">${f.links.map(l=>l.a?`<a href="#" class="plink" onclick="event.preventDefault();openModal('products')">📦 Ver produtos elegíveis</a>`:`<a href="${l.u}" target="_blank" class="plink">${l.l}</a>`).join('')}</div>`:''}</div>`).join('')}</div>
+  <hr class="divider">
+  <div class="practice-block" style="margin-bottom:1rem"><h3>Regras e compliance</h3>${p.regras.map(i=>`<div class="practice-item"><div class="pdot"></div><span>${i}</span></div>`).join('')}</div>
+  <hr class="divider">
+  <div class="practice-block"><h3>Dicas adicionais</h3>${p.dicas.map(i=>`<div class="practice-item"><div class="pdot"></div><span>${i}</span></div>`).join('')}</div>
+</div>`;
+}
+function setSeg(s){segAtivo=s;render();}
+function swapPrac(s){document.querySelectorAll('.seg-tab').forEach(b=>b.classList.toggle('active',b.textContent===PRACTICES[s].label));document.getElementById('prac-body').innerHTML=renderPracticesBody(s);}
+
+// ══════════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════════
+function openModal(type,id){
+  const ov=document.getElementById('overlay'),box=document.getElementById('modal-box');
+  box.className='modal';ov.classList.remove('hidden');
+  if(type==='addClient'){
+    box.innerHTML=`<div class="modal-title">Novo cliente</div>
+<div class="form-group"><label>Nome da empresa *</label><input id="m-name" placeholder="Ex: Segurança Total Ltda"></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>CNPJ</label><input id="m-cnpj" placeholder="00.000.000/0001-00"></div><div class="form-group"><label>Site</label><input id="m-site" type="url" placeholder="https://..."></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Segmento</label><select id="m-seg"><option value="">Selecionar...</option><option>Monitoramento</option><option>Portaria Remota</option><option>Incêndio</option><option>Instalador</option><option>Integrador</option><option>Cabeamento Estruturado</option><option>Comunicação Unificada</option></select></div><div class="form-group"><label>Origem do lead</label><select id="m-origem"><option value="">Selecionar...</option><option>Pesquisa Google</option><option>IA</option><option>Base Plantec Inativos</option><option>Base Intelbras</option></select></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Contato</label><input id="m-contact" placeholder="Nome do contato"></div><div class="form-group"><label>Função / Cargo</label><input id="m-cargo" placeholder="Ex: Diretor Comercial"></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Telefone / e-mail</label><input id="m-phone" placeholder="(11) 9..."></div><div class="form-group"><label>Código Gestão</label><input id="m-codgest" placeholder="Cód. do CRM"></div></div>
+<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitClient()">Adicionar</button></div>`;}
+  else if(type==='editClient'){
+    const c=cacheClients.find(x=>x.id===id);if(!c)return;
+    box.innerHTML=`<div class="modal-title">Editar cliente</div>
+<div class="form-group"><label>Nome da empresa *</label><input id="m-name" value="${c.name||''}"></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>CNPJ</label><input id="m-cnpj" value="${c.cnpj||''}"></div><div class="form-group"><label>Site</label><input id="m-site" type="url" value="${c.site||''}"></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Segmento</label><select id="m-seg"><option value="">Selecionar...</option>${['Monitoramento','Portaria Remota','Incêndio','Instalador','Integrador','Cabeamento Estruturado','Comunicação Unificada'].map(s=>`<option ${c.segment===s?'selected':''}>${s}</option>`).join('')}</select></div><div class="form-group"><label>Origem do lead</label><select id="m-origem"><option value="">Selecionar...</option>${['Pesquisa Google','IA','Base Plantec Inativos','Base Intelbras'].map(s=>`<option ${c.origem===s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Contato</label><input id="m-contact" value="${c.contact||''}"></div><div class="form-group"><label>Função / Cargo</label><input id="m-cargo" value="${c.cargo||''}"></div></div>
+<div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Telefone / e-mail</label><input id="m-phone" value="${c.phone||''}"></div><div class="form-group"><label>Código Gestão</label><input id="m-codgest" value="${c.cod_gestao||''}"></div></div>
+<div class="modal-actions"><button class="btn btn-danger" style="margin-right:auto" onclick="deleteClient('${id}')">Remover</button><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitEditClient('${id}')">Salvar</button></div>`;}
+  else if(type==='addTask'){
+    box.innerHTML=`<div class="modal-title">Nova tarefa</div>
+<div class="form-group"><label>Descrição *</label><input id="t-text" placeholder="Ex: Enviar proposta comercial"></div>
+<div class="form-row"><div class="form-group"><label>Prioridade</label><select id="t-prio"><option value="">Sem prioridade</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select></div><div class="form-group"><label>Data limite</label><input id="t-due" type="date"></div></div>
+<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitTask('${id}')">Adicionar</button></div>`;}
+  else if(type==='addConsultor'){
+    box.innerHTML=`<div class="modal-title">Novo consultor</div>
+<div class="form-group"><label>Nome completo *</label><input id="nc-name" placeholder="Ex: João Silva"></div>
+<div class="form-group"><label>Usuário * (sem espaços)</label><input id="nc-user" placeholder="joao.silva"></div>
+<div class="form-group"><label>Senha *</label><input id="nc-pass" type="password" placeholder="mínimo 6 caracteres"></div>
+<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitConsultor()">Criar</button></div>`;}
+  else if(type==='editConsultor'){
+    const p=cacheProfiles.find(x=>x.id===id);if(!p)return;
+    box.innerHTML=`<div class="modal-title">Editar consultor</div>
+<div class="form-group"><label>Nome completo</label><input id="ec-name" value="${p.full_name||''}"></div>
+<div class="form-group"><label>Nova senha (deixe em branco para não alterar)</label><input id="ec-pass" type="password" placeholder="nova senha..."></div>
+<div class="form-group"><label>Status</label><select id="ec-active"><option value="true" ${p.active?'selected':''}>Ativo</option><option value="false" ${!p.active?'selected':''}>Inativo</option></select></div>
+<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitEditConsultor('${id}')">Salvar</button></div>`;}
+  else if(type==='practices'){
+    const c=cacheClients.find(x=>x.id===id);
+    const sk=c&&c.segment?Object.keys(PRACTICES).find(k=>PRACTICES[k].label===c.segment):null;
+    box.className='modal modal-lg';
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div class="modal-title" style="margin-bottom:0">📋 Melhores Práticas</div><button class="btn btn-sm" onclick="closeModal()">✕</button></div>${renderPractices(sk||'monitoramento',true)}`;}
+  else if(type==='products'){
+    const prods=cacheProdutos.length>0?cacheProdutos:[];
+    const segs=[...new Set(prods.map(p=>p.segmento))];
+    box.className='modal modal-lg';
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem"><div class="modal-title" style="margin-bottom:0">📦 Produtos Elegíveis — Monitoramento</div><button class="btn btn-sm" onclick="closeModal()">✕</button></div><div style="overflow-x:auto"><table class="prod-table"><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th></tr></thead><tbody>${segs.map(seg=>`<tr><td colspan="3" class="prod-seg-hdr" style="padding:5px 10px">${seg}</td></tr>${prods.filter(p=>p.segmento===seg).map(p=>`<tr><td style="font-family:monospace;color:var(--gray-500)">${p.codigo}</td><td>${p.descricao}</td><td><span class="badge badge-seg">${p.segmento}</span></td></tr>`).join('')}`).join('')}</tbody></table></div>`;}
+  else if(type==='config'){
+    // consultor: só ver produtos
+    box.innerHTML=`<div class="modal-title">⚙ Configurar</div>
+<div class="cfg-sec"><div class="cfg-sec-title">Ver produtos elegíveis</div><button class="btn btn-sm" onclick="closeModal();openModal('products')">📦 Ver lista de produtos</button></div>
+<div class="modal-actions"><button class="btn" onclick="closeModal()">Fechar</button></div>`;}
+}
+function closeModal(){document.getElementById('overlay').classList.add('hidden');}
+document.getElementById('overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// ══════════════════════════════════════════════
+// SUBMIT HANDLERS
+// ══════════════════════════════════════════════
+async function submitClient(){
+  const name=document.getElementById('m-name').value.trim();if(!name)return;
+  const cnpj=document.getElementById('m-cnpj').value.trim();
+  if(cnpj&&cacheClients.find(c=>c.cnpj&&c.cnpj.replace(/\D/g,'')=== cnpj.replace(/\D/g,''))){toast('CNPJ já cadastrado.',false);return;}
+  const seg=document.getElementById('m-seg').value;
+  const targetUserId=dashConsultor||curProfile.id;
+  const {data:client,error}=await sb.from('clients').insert({
+    user_id:targetUserId,name,cnpj,site:document.getElementById('m-site').value.trim(),segment:seg,
+    origem:document.getElementById('m-origem').value,contact:document.getElementById('m-contact').value.trim(),
+    cargo:document.getElementById('m-cargo').value.trim(),phone:document.getElementById('m-phone').value.trim(),
+    cod_gestao:document.getElementById('m-codgest').value.trim(),status:'prospecto',temp:'',is_new_lead:false
+  }).select().single();
+  if(error){toast('Erro ao salvar.',false);return;}
+  cacheClients.unshift(client);
+  if(CHECKLISTS[seg]){
+    const d7=new Date();d7.setDate(d7.getDate()+7);const ds=d7.toISOString().slice(0,10);
+    const tasksToInsert=CHECKLISTS[seg].map(text=>({client_id:client.id,user_id:targetUserId,text,priority:'alta',due:ds,done:false,is_checklist:true}));
+    const {data:newTasks}=await sb.from('tasks').insert(tasksToInsert).select();
+    if(newTasks)cacheTasks.push(...newTasks);
+  }
+  closeModal();crmFilter='prospecto';render();toast('Cliente adicionado!');
+}
+
+async function submitEditClient(id){
+  const name=document.getElementById('m-name').value.trim();if(!name)return;
+  const cnpj=document.getElementById('m-cnpj').value.trim();
+  if(cnpj&&cacheClients.find(c=>c.id!==id&&c.cnpj&&c.cnpj.replace(/\D/g,'')===cnpj.replace(/\D/g,''))){toast('CNPJ já cadastrado.',false);return;}
+  const upd={name,cnpj,site:document.getElementById('m-site').value.trim(),segment:document.getElementById('m-seg').value,
+    origem:document.getElementById('m-origem').value,contact:document.getElementById('m-contact').value.trim(),
+    cargo:document.getElementById('m-cargo').value.trim(),phone:document.getElementById('m-phone').value.trim(),
+    cod_gestao:document.getElementById('m-codgest').value.trim(),updated_at:new Date().toISOString()};
+  const {error}=await sb.from('clients').update(upd).eq('id',id);
+  if(error){toast('Erro ao salvar.',false);return;}
+  const idx=cacheClients.findIndex(c=>c.id===id);if(idx>=0)Object.assign(cacheClients[idx],upd);
+  closeModal();render();toast('Salvo!');
+}
+
+async function deleteClient(id){
+  if(!confirm('Remover permanentemente?'))return;
+  await sb.from('clients').delete().eq('id',id);
+  cacheClients=cacheClients.filter(c=>c.id!==id);
+  cacheTasks=cacheTasks.filter(t=>t.client_id!==id);
+  cacheNotes=cacheNotes.filter(n=>n.client_id!==id);
+  curClient=null;closeModal();render();toast('Removido!');
+}
+
+async function submitTask(cid){
+  const text=document.getElementById('t-text').value.trim();if(!text)return;
+  const targetUserId=cacheClients.find(c=>c.id===cid)?.user_id||curProfile.id;
+  const {data:task,error}=await sb.from('tasks').insert({
+    client_id:cid,user_id:targetUserId,text,priority:document.getElementById('t-prio').value,
+    due:document.getElementById('t-due').value||null,done:false,is_checklist:false
+  }).select().single();
+  if(error){toast('Erro.',false);return;}
+  cacheTasks.push(task);closeModal();render();toast('Tarefa adicionada!');
+}
+
+async function toggleTask(taskId,clientId,checked){
+  const now=new Date().toISOString();
+  const upd={done:checked,done_at:checked?now:null,updated_at:now};
+  await sb.from('tasks').update(upd).eq('id',taskId);
+  const t=cacheTasks.find(x=>x.id===taskId);if(t)Object.assign(t,upd);
+  render();
+}
+
+async function deleteTask(taskId,clientId){
+  if(!confirm('Remover?'))return;
+  await sb.from('tasks').delete().eq('id',taskId);
+  cacheTasks=cacheTasks.filter(t=>t.id!==taskId);render();toast('Removida!');
+}
+
+async function addNote(cid){
+  const inp=document.getElementById('tl-input');if(!inp||!inp.value.trim())return;
+  const targetUserId=cacheClients.find(c=>c.id===cid)?.user_id||curProfile.id;
+  const {data:note,error}=await sb.from('notes').insert({client_id:cid,user_id:curProfile.id,text:inp.value.trim()}).select().single();
+  if(error){toast('Erro.',false);return;}
+  cacheNotes.unshift(note);render();toast('Anotação registrada!');
+}
+
+async function setTemp(id,temp){
+  await sb.from('clients').update({temp,updated_at:new Date().toISOString()}).eq('id',id);
+  const c=cacheClients.find(x=>x.id===id);if(c)c.temp=temp;render();
+}
+
+async function setStatus(id,status){
+  await sb.from('clients').update({status,updated_at:new Date().toISOString()}).eq('id',id);
+  const c=cacheClients.find(x=>x.id===id);if(c)c.status=status;render();
+}
+
+// ══════════════════════════════════════════════
+// CONSULTOR MANAGEMENT
+// ══════════════════════════════════════════════
+async function submitConsultor(){
+  const name=document.getElementById('nc-name').value.trim();
+  const username=document.getElementById('nc-user').value.trim().toLowerCase().replace(/\s/g,'');
+  const password=document.getElementById('nc-pass').value;
+  if(!name||!username||password.length<6){toast('Preencha todos os campos (senha mín. 6 caracteres).',false);return;}
+  const email=username+'@plantec.internal';
+  const {data,error}=await sb.auth.admin.createUser({email,password,user_metadata:{username,full_name:name,role:'consultor'},email_confirm:true});
+  if(error){toast('Erro: '+error.message,false);return;}
+  await loadData();closeModal();render();toast('Consultor criado!');
+}
+
+async function submitEditConsultor(id){
+  const name=document.getElementById('ec-name').value.trim();
+  const active=document.getElementById('ec-active').value==='true';
+  const pass=document.getElementById('ec-pass').value;
+  await sb.from('profiles').update({full_name:name,active}).eq('id',id);
+  if(pass&&pass.length>=6){
+    await sb.auth.admin.updateUserById(id,{password:pass});
+  }
+  await loadData();closeModal();render();toast('Salvo!');
+}
+
+// ══════════════════════════════════════════════
+// IMPORT LEADS (GESTOR)
+// ══════════════════════════════════════════════
+function loadXLSX(data,cb){
+  if(typeof XLSX!=='undefined'){const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];cb(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));}
+  else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=()=>{const wb=XLSX.read(data,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];cb(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));};s.onerror=()=>toast('Erro ao carregar leitor Excel.',false);document.head.appendChild(s);}
+}
+
+async function importLeads(e){
+  const file=e.target.files[0];if(!file)return;
+  const targetUserId=document.getElementById('cfg-cons')?.value;
+  if(!targetUserId){toast('Selecione um consultor.',false);return;}
+  const r=new FileReader();
+  r.onload=ev=>{loadXLSX(new Uint8Array(ev.target.result),async rows=>{
+    if(!rows||rows.length<2){toast('Arquivo vazio.',false);return;}
+    const h=rows[0].map(x=>(x||'').toString().toLowerCase());
+    const iC=h.findIndex(x=>x.includes('cnpj')),iN=h.findIndex(x=>x.includes('nome')||x.includes('empresa')),iSi=h.findIndex(x=>x.includes('site')),iSe=h.findIndex(x=>x.includes('segment')),iO=h.findIndex(x=>x.includes('origem')),iCo=h.findIndex(x=>x.includes('contato')),iT=h.findIndex(x=>x.includes('telefone')),iG=h.findIndex(x=>x.includes('gest'));
+    let added=0;const duplicados=[];
+    const toInsert=[];
+    rows.slice(1).forEach(row=>{
+      if(!row||!row.length)return;
+      const cnpj=(row[iC]||'').toString().replace(/\D/g,'');const name=(row[iN]||'').toString().trim();if(!name)return;
+      if(cnpj&&cacheClients.find(c=>c.cnpj&&c.cnpj.replace(/\D/g,'')===cnpj)){duplicados.push({CNPJ:(row[iC]||'').toString(),'Nome da Empresa':name});return;}
+      const seg=(row[iSe]||'').toString().trim();
+      toInsert.push({user_id:targetUserId,name,cnpj:(row[iC]||'').toString().trim(),site:iSi>=0?(row[iSi]||'').toString().trim():'',segment:seg,origem:iO>=0?(row[iO]||'').toString().trim():'',contact:iCo>=0?(row[iCo]||'').toString().trim():'',phone:iT>=0?(row[iT]||'').toString().trim():'',cod_gestao:iG>=0?(row[iG]||'').toString().trim():'',status:'prospecto',temp:'',is_new_lead:true});
+      added++;
+    });
+    if(toInsert.length>0){
+      const {data:inserted}=await sb.from('clients').insert(toInsert).select();
+      if(inserted){
+        cacheClients.unshift(...inserted);
+        // checklists
+        const tasksBatch=[];
+        inserted.forEach(client=>{
+          if(CHECKLISTS[client.segment]){const d7=new Date();d7.setDate(d7.getDate()+7);const ds=d7.toISOString().slice(0,10);CHECKLISTS[client.segment].forEach(text=>tasksBatch.push({client_id:client.id,user_id:targetUserId,text,priority:'alta',due:ds,done:false,is_checklist:true}));}
+        });
+        if(tasksBatch.length>0){const {data:nt}=await sb.from('tasks').insert(tasksBatch).select();if(nt)cacheTasks.push(...nt);}
+      }
+    }
+    render();
+    if(duplicados.length>0){
+      if(confirm(`✅ ${added} leads inseridos\n⚠ ${duplicados.length} duplicados\n\nBaixar Excel dos duplicados?`)){downloadDuplicados(duplicados);}
+    } else {toast(`✅ ${added} leads inseridos!`);}
+  });};r.readAsArrayBuffer(file);
+}
+
+async function importProdutos(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();r.onload=ev=>{loadXLSX(new Uint8Array(ev.target.result),async rows=>{
+    if(!rows||rows.length<2){toast('Arquivo vazio.',false);return;}
+    const h=rows[0].map(x=>(x||'').toString().toLowerCase());
+    const iC=h.findIndex(x=>x.includes('cod')),iD=h.findIndex(x=>x.includes('desc')),iS=h.findIndex(x=>x.includes('seg'));
+    const prods=rows.slice(1).filter(row=>(row[iD]||'').toString().trim()).map(row=>({codigo:(row[iC]||'').toString().trim(),descricao:(row[iD]||'').toString().trim(),segmento:iS>=0?(row[iS]||'').toString().trim():'Geral'}));
+    await sb.from('produtos_monitoramento').delete().neq('id','00000000-0000-0000-0000-000000000000');
+    const {data}=await sb.from('produtos_monitoramento').insert(prods).select();
+    cacheProdutos=data||[];render();toast(`✅ ${prods.length} produtos atualizados!`);
+  });};r.readAsArrayBuffer(file);
+}
+
+async function importOfflineBackup(e){
+  const file=e.target.files[0];if(!file)return;
+  const targetUserId=document.getElementById('cfg-cons')?.value;
+  if(!targetUserId){toast('Selecione um consultor.',false);return;}
+  const r=new FileReader();r.onload=async ev=>{
+    try{
+      const pl=JSON.parse(ev.target.result);
+      const clients=pl.clients||[];
+      if(!confirm(`Importar ${clients.length} clientes do backup offline para o consultor selecionado?`))return;
+      let added=0;
+      for(const c of clients){
+        const cnpj=c.cnpj?c.cnpj.replace(/\D/g,''):'';
+        if(cnpj&&cacheClients.find(x=>x.cnpj&&x.cnpj.replace(/\D/g,'')===cnpj))continue;
+        const {data:client}=await sb.from('clients').insert({user_id:targetUserId,name:c.name,cnpj:c.cnpj||'',site:c.site||'',segment:c.segment||'',origem:c.origem||'',contact:c.contact||'',cargo:c.cargo||'',phone:c.phone||'',cod_gestao:c.codGestao||'',status:c.status||'prospecto',temp:c.temp||'',is_new_lead:false}).select().single();
+        if(!client)continue;
+        cacheClients.unshift(client);
+        // tasks
+        if(c.tasks&&c.tasks.length){
+          const tins=c.tasks.map(t=>({client_id:client.id,user_id:targetUserId,text:t.text,priority:t.priority||'',due:t.due||null,done:t.done||false,done_at:t.doneAt||null,is_checklist:t.isChecklist||false}));
+          const {data:nt}=await sb.from('tasks').insert(tins).select();if(nt)cacheTasks.push(...nt);
+        }
+        // notes
+        if(c.notes&&c.notes.length){
+          const nins=c.notes.map(n=>({client_id:client.id,user_id:curProfile.id,text:n.text}));
+          const {data:nn}=await sb.from('notes').insert(nins).select();if(nn)cacheNotes.push(...nn);
+        }
+        added++;
+      }
+      render();toast(`✅ ${added} clientes importados!`);
+    }catch(err){toast('Arquivo inválido.',false);}
+  };r.readAsText(file);
+}
+
+function downloadDuplicados(duplicados){
+  function _dl(){const ws=XLSX.utils.json_to_sheet(duplicados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Duplicados');XLSX.writeFile(wb,'LEADS_DUPLICADOS_'+new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')+'.xlsx');}
+  if(typeof XLSX!=='undefined'){_dl();}else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=_dl;document.head.appendChild(s);}
+}
+function downloadModeloLeads(){
+  function _dl(){
+    const ws=XLSX.utils.aoa_to_sheet([['CNPJ','Nome da Empresa','Site','Segmento','Origem do Lead','Contato','Telefone','Codigo Gestao']]);
+    ws['!cols']=[{wch:18},{wch:30},{wch:25},{wch:24},{wch:22},{wch:22},{wch:16},{wch:16}];
+    ws['!dataValidation']=[{sqref:'D2:D10000',type:'list',formula1:'"Monitoramento,Portaria Remota,Incêndio,Instalador,Integrador,Cabeamento Estruturado,Comunicação Unificada"',showErrorMessage:true,errorTitle:'Segmento inválido',error:'Use apenas as opções da lista.'},{sqref:'E2:E10000',type:'list',formula1:'"Pesquisa Google,IA,Base Plantec Inativos,Base Intelbras"',showErrorMessage:true,errorTitle:'Origem inválida',error:'Use apenas as opções da lista.'}];
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Leads');XLSX.writeFile(wb,'MODELO_Leads.xlsx');
+  }
+  if(typeof XLSX!=='undefined'){_dl();}else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=_dl;document.head.appendChild(s);}
+}
+function downloadModeloProdutos(){
+  function _dl(){const ws=XLSX.utils.aoa_to_sheet([['Código','DESCRIÇÃO','Segmento']]);ws['!cols']=[{wch:12},{wch:50},{wch:16}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Produtos');XLSX.writeFile(wb,'MODELO_Produtos_Monitoramento.xlsx');}
+  if(typeof XLSX!=='undefined'){_dl();}else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=_dl;document.head.appendChild(s);}
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session)await initApp(session.user);
+})();
+</script>
+</body>
+</html>
