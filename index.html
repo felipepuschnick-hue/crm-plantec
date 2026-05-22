@@ -394,16 +394,21 @@ function buildNav(){
     {key:'cnpj',icon:'🔍',label:'Consulta CNPJ',sub_gestor:[{key:'cnpj',label:'Consulta'},{key:'cnpj-atualizar',label:'Atualizar Base'}]},
   ];
   const navItems=isGestor?[...baseNav,{key:'config',icon:'⚙',label:'Configurar'}]:baseNav;
-  const subGroups={'proj-dash':['proj-dash','projetos'],'projetos':['proj-dash','projetos'],'camp-voce':['camp-voce','camp-clientes'],'camp-clientes':['camp-voce','camp-clientes'],'cnpj':['cnpj','cnpj-atualizar'],'cnpj-atualizar':['cnpj','cnpj-atualizar']};
-  function inGroup(parentKey){const grp=subGroups;const keys=Object.keys(grp).filter(k=>grp[k][0]===parentKey||grp[k].includes(parentKey));return sidebarExpandedKey===parentKey||keys.some(k=>k===curView);}
+  // grupos: chave do pai → lista de subchaves
+  const parentGroups={'proj':['proj-dash','projetos'],'camp':['camp-voce','camp-clientes'],'cnpj':['cnpj','cnpj-atualizar']};
+  // determina a chave-pai do curView
+  function getParent(view){return Object.keys(parentGroups).find(p=>parentGroups[p].includes(view))||null;}
+  const curParent=getParent(curView);
+
   document.getElementById('sb-nav').innerHTML=navItems.map(n=>{
-    if(n.sub||(n.sub_gestor&&isGestor)){
-      const subList=n.sub_gestor&&isGestor?n.sub_gestor:(n.sub||[]);
+    const subList=n.sub_gestor&&isGestor?n.sub_gestor:(n.sub||null);
+    if(subList){
+      // está aberto se: sidebarExpandedKey === n.key OU curView é filho e não foi fechado manualmente
+      const isOpen=sidebarExpandedKey===n.key||(curParent===n.key&&sidebarExpandedKey!==('_closed_'+n.key));
+      const isActive=curParent===n.key||curView===n.key;
       const firstKey=subList[0]?.key||n.key;
-      const isOpen=subList.some(s=>inGroup(s.key));
-      const isActive=subList.some(s=>inGroup(s.key))||curView===n.key;
-      const clickAction=isOpen?`toggleSidebarGroup('${n.key}')`:`sidebarExpandedKey='${n.key}';navTo('${firstKey}')`;
-      return`<div><button class="sbi ${isActive?'active':''}" onclick="${clickAction}"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label} ${isOpen?'▾':'▸'}</span></button>${isOpen?`<div style="padding:2px 0 2px 28px">${subList.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="sidebarExpandedKey='${n.key}';navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
+      const toggleClick=isOpen?`sidebarExpandedKey='_closed_${n.key}';buildNav()`:`sidebarExpandedKey='${n.key}';navTo('${firstKey}')`;
+      return`<div><button class="sbi ${isActive?'active':''}" onclick="${toggleClick}"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label} ${isOpen?'▾':'▸'}</span></button>${isOpen?`<div style="padding:2px 0 2px 28px">${subList.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="sidebarExpandedKey='${n.key}';navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
     }
     return`<button class="sbi ${curView===n.key?'active':''}" onclick="sidebarExpandedKey=null;navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
   }).join('');
@@ -412,9 +417,9 @@ function buildNav(){
 function navTo(v){
   curView=v;curClient=null;dashConsultor=null;
   // auto-expand parent if navigating to sub-item
-  if(['proj-dash','projetos'].includes(v)) sidebarExpandedKey='proj';
-  else if(['camp-voce','camp-clientes'].includes(v)) sidebarExpandedKey='camp';
-  else if(['cnpj','cnpj-atualizar'].includes(v)) sidebarExpandedKey='cnpj';
+  // auto-set expandedKey when navigating to sub-items
+  const _pg={'proj-dash':'proj','projetos':'proj','camp-voce':'camp','camp-clientes':'camp','cnpj':'cnpj','cnpj-atualizar':'cnpj'};
+  if(_pg[v]) sidebarExpandedKey=_pg[v];
   else sidebarExpandedKey=null;
   const labels={dashboard:'Dashboard',tarefas:'Tarefas',clientes:'Clientes',practices:'Melhores Práticas','proj-dash':'Gestão de Projetos',projetos:'Projetos',carteira:'Carteira de Clientes','camp-voce':'Campanhas — Para Você','camp-clientes':'Campanhas — Para Clientes',cnpj:'Consulta CNPJ',config:'Configurar'};
   document.getElementById('topbar-title').textContent=labels[v]||'';
