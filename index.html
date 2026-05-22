@@ -711,15 +711,24 @@ function drillConsultor(uid){dashConsultor=uid;curView='clientes';buildNav();ren
 // ══════════════════════════════════════════════
 function renderConsultores(){
   const consultores=cacheProfiles.filter(p=>p.role==='consultor');
-  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
-  <div style="font-size:15px;font-weight:600">${consultores.length} consultor${consultores.length!==1?'es':''}</div>
-  <button class="btn btn-green" onclick="openModal('addConsultor')">+ Novo consultor</button>
+  return`<div style="margin-bottom:1.25rem">
+  <div style="font-size:15px;font-weight:600;margin-bottom:.75rem">${consultores.length} consultor${consultores.length!==1?'es':''}</div>
+  <div class="card" style="background:var(--green-light);border-color:var(--green-mid);margin-bottom:1.25rem">
+    <div style="font-size:13px;font-weight:700;color:var(--green-dark);margin-bottom:.5rem">➕ Como adicionar um novo consultor</div>
+    <div style="font-size:12px;color:var(--green-text);line-height:1.8">
+      <b>1.</b> Acesse o Supabase → <b>Authentication → Users → Add user</b><br>
+      <b>2.</b> Email: <code style="background:rgba(0,0,0,.08);padding:1px 5px;border-radius:3px">usuario@plantec.internal</code> &nbsp;(ex: joao.silva@plantec.internal)<br>
+      <b>3.</b> Defina a senha e marque <b>Auto Confirm User ✅</b><br>
+      <b>4.</b> No <b>SQL Editor</b> do Supabase, rode:<br>
+      <code style="display:block;background:rgba(0,0,0,.08);padding:6px 8px;border-radius:4px;margin-top:4px;font-size:11px">INSERT INTO public.profiles (id, username, full_name, role, active)<br>SELECT id, 'joao.silva', 'João Silva', 'consultor', true<br>FROM auth.users WHERE email = 'joao.silva@plantec.internal';</code>
+    </div>
+  </div>
 </div>
-${consultores.length===0?`<div class="empty-state">Nenhum consultor cadastrado.</div>`:consultores.map(p=>`<div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:14px">
+${consultores.length===0?`<div class="empty-state">Nenhum consultor cadastrado ainda.</div>`:consultores.map(p=>`<div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:14px">
   <div class="cons-avatar" style="width:42px;height:42px;font-size:16px">${initials(p.full_name||p.username)}</div>
   <div style="flex:1">
     <div style="font-size:14px;font-weight:600">${p.full_name||p.username}</div>
-    <div style="font-size:12px;color:var(--gray-500)">@${p.username} · ${p.active?'Ativo':'Inativo'}</div>
+    <div style="font-size:12px;color:var(--gray-500)">@${p.username} · <span style="color:${p.active?'var(--green)':'var(--red)'}">${p.active?'Ativo':'Inativo'}</span></div>
   </div>
   <button class="btn btn-sm" onclick="openModal('editConsultor','${p.id}')">✏ Editar</button>
 </div>`).join('')}`;
@@ -828,18 +837,15 @@ function openModal(type,id){
 <div class="form-group"><label>Descrição *</label><input id="t-text" placeholder="Ex: Enviar proposta comercial"></div>
 <div class="form-row"><div class="form-group"><label>Prioridade</label><select id="t-prio"><option value="">Sem prioridade</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select></div><div class="form-group"><label>Data limite</label><input id="t-due" type="date"></div></div>
 <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitTask('${id}')">Adicionar</button></div>`;}
-  else if(type==='addConsultor'){
-    box.innerHTML=`<div class="modal-title">Novo consultor</div>
-<div class="form-group"><label>Nome completo *</label><input id="nc-name" placeholder="Ex: João Silva"></div>
-<div class="form-group"><label>Usuário * (sem espaços)</label><input id="nc-user" placeholder="joao.silva"></div>
-<div class="form-group"><label>Senha *</label><input id="nc-pass" type="password" placeholder="mínimo 6 caracteres"></div>
-<div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitConsultor()">Criar</button></div>`;}
+
   else if(type==='editConsultor'){
     const p=cacheProfiles.find(x=>x.id===id);if(!p)return;
     box.innerHTML=`<div class="modal-title">Editar consultor</div>
 <div class="form-group"><label>Nome completo</label><input id="ec-name" value="${p.full_name||''}"></div>
-<div class="form-group"><label>Nova senha (deixe em branco para não alterar)</label><input id="ec-pass" type="password" placeholder="nova senha..."></div>
 <div class="form-group"><label>Status</label><select id="ec-active"><option value="true" ${p.active?'selected':''}>Ativo</option><option value="false" ${!p.active?'selected':''}>Inativo</option></select></div>
+<div style="background:var(--amber-light);border:1px solid var(--amber-mid);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:#633806;margin-bottom:10px">
+  Para redefinir a senha de um consultor, acesse <b>Supabase → Authentication → Users</b>, clique no usuário e use "Send password reset".
+</div>
 <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitEditConsultor('${id}')">Salvar</button></div>`;}
   else if(type==='practices'){
     const c=cacheClients.find(x=>x.id===id);
@@ -955,25 +961,13 @@ async function setStatus(id,status){
 // ══════════════════════════════════════════════
 // CONSULTOR MANAGEMENT
 // ══════════════════════════════════════════════
-async function submitConsultor(){
-  const name=document.getElementById('nc-name').value.trim();
-  const username=document.getElementById('nc-user').value.trim().toLowerCase().replace(/\s/g,'');
-  const password=document.getElementById('nc-pass').value;
-  if(!name||!username||password.length<6){toast('Preencha todos os campos (senha mín. 6 caracteres).',false);return;}
-  const email=username+'@plantec.internal';
-  const {data,error}=await sb.auth.admin.createUser({email,password,user_metadata:{username,full_name:name,role:'consultor'},email_confirm:true});
-  if(error){toast('Erro: '+error.message,false);return;}
-  await loadData();closeModal();render();toast('Consultor criado!');
-}
+
 
 async function submitEditConsultor(id){
   const name=document.getElementById('ec-name').value.trim();
   const active=document.getElementById('ec-active').value==='true';
-  const pass=document.getElementById('ec-pass').value;
-  await sb.from('profiles').update({full_name:name,active}).eq('id',id);
-  if(pass&&pass.length>=6){
-    await sb.auth.admin.updateUserById(id,{password:pass});
-  }
+  const {error}=await sb.from('profiles').update({full_name:name,active}).eq('id',id);
+  if(error){toast('Erro ao salvar: '+error.message,false);return;}
   await loadData();closeModal();render();toast('Salvo!');
 }
 
