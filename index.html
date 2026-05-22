@@ -645,9 +645,6 @@ function renderDashboardGestor(){
     return{seg,done,total,pct};
   });
 
-  // Por consultor
-  const consultores=cacheProfiles.filter(p=>p.role==='consultor'&&p.active);
-
   const consOptions=`<option value="todos">Todos os consultores</option>${consultores.map(p=>`<option value="${p.id}" ${selCons===p.id?'selected':''}>${p.full_name||p.username}</option>`).join('')}`;
   return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
   <div style="font-size:15px;font-weight:600">Dashboard</div>
