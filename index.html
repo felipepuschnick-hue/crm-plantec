@@ -323,10 +323,10 @@ async function initApp(user){
   document.getElementById('app-screen').style.display='flex';
   document.getElementById('sb-user').textContent=profile.full_name||profile.username;
   document.getElementById('sb-role-label').textContent=profile.role==='gestor'?'Gestor':'Consultor';
-  curView=profile.role==='gestor'?'dashboard':'clientes';
+  curView='dashboard';
   buildNav();
   await loadData();
-  document.getElementById('topbar-title').textContent=profile.role==='gestor'?'Dashboard':'Clientes';
+  document.getElementById('topbar-title').textContent='Dashboard';
   render();
   setupRealtime();
 }
@@ -344,24 +344,31 @@ document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Ent
 // ══════════════════════════════════════════════
 function buildNav(){
   const isGestor=curProfile.role==='gestor';
-  const navItems=isGestor?[
+  const baseNav=[
     {key:'dashboard',icon:'📊',label:'Dashboard'},
-    {key:'clientes',icon:'👥',label:'Clientes'},
     {key:'tarefas',icon:'✅',label:'Tarefas'},
-    {key:'practices',icon:'📋',label:'Melhores Práticas'},
-    {key:'config',icon:'⚙',label:'Configurar'},
-  ]:[
-    {key:'dashboard',icon:'📊',label:'Dashboard'},
     {key:'clientes',icon:'👥',label:'Clientes'},
-    {key:'tarefas',icon:'✅',label:'Tarefas'},
     {key:'practices',icon:'📋',label:'Melhores Práticas'},
+    {key:'proj-dash',icon:'📁',label:'Gestão de Projetos',sub:[{key:'proj-dash',label:'Dashboard'},{key:'projetos',label:'Projetos'}]},
+    {key:'carteira',icon:'💼',label:'Carteira de Clientes'},
+    {key:'campanhas',icon:'📣',label:'Campanhas',sub:[{key:'camp-voce',label:'Para Você'},{key:'camp-clientes',label:'Para Clientes'}]},
+    {key:'cnpj',icon:'🔍',label:'Consulta CNPJ'},
   ];
-  document.getElementById('sb-nav').innerHTML=navItems.map(n=>`<button class="sbi ${curView===n.key?'active':''}" onclick="navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`).join('');
+  const navItems=isGestor?[...baseNav,{key:'config',icon:'⚙',label:'Configurar'}]:baseNav;
+  const subViews={'proj-dash':['proj-dash','projetos'],'projetos':['proj-dash','projetos'],'camp-voce':['camp-voce','camp-clientes'],'camp-clientes':['camp-voce','camp-clientes']};
+  function parentActive(key){return subViews[curView]&&subViews[curView].includes(key)||curView===key;}
+  document.getElementById('sb-nav').innerHTML=navItems.map(n=>{
+    if(n.sub){
+      const open=n.sub.some(s=>s.key===curView)||curView===n.key;
+      return`<div><button class="sbi ${parentActive(n.key)?'active':''}" onclick="navTo('${n.sub[0].key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>${open?`<div style="padding:2px 0 2px 32px">${n.sub.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
+    }
+    return`<button class="sbi ${curView===n.key?'active':''}" onclick="navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
+  }).join('');
 }
 
 function navTo(v){
   curView=v;curClient=null;dashConsultor=null;
-  const labels={dashboard:'Dashboard',clientes:'Clientes',tarefas:'Tarefas',practices:'Melhores Práticas',config:'Configurar'};
+  const labels={dashboard:'Dashboard',tarefas:'Tarefas',clientes:'Clientes',practices:'Melhores Práticas','proj-dash':'Gestão de Projetos',projetos:'Projetos',carteira:'Carteira de Clientes','camp-voce':'Campanhas — Para Você','camp-clientes':'Campanhas — Para Clientes',cnpj:'Consulta CNPJ',config:'Configurar'};
   document.getElementById('topbar-title').textContent=labels[v]||'';
   buildNav();render();
 }
@@ -421,6 +428,12 @@ function render(){
   else if(curView==='tarefas') el.innerHTML=renderTarefas();
   else if(curView==='practices') el.innerHTML=renderPractices(segAtivo);
   else if(curView==='dashboard') el.innerHTML=curProfile.role==='gestor'?renderDashboardGestor():renderDashboardConsultor();
+  else if(curView==='proj-dash') el.innerHTML=renderProjDash();
+  else if(curView==='projetos') el.innerHTML=renderProjetos();
+  else if(curView==='carteira') el.innerHTML=renderCarteira();
+  else if(curView==='camp-voce') el.innerHTML=renderCampanhas('voce');
+  else if(curView==='camp-clientes') el.innerHTML=renderCampanhas('clientes');
+  else if(curView==='cnpj') el.innerHTML=renderCNPJ();
   else if(curView==='config') el.innerHTML=renderConfig();
 }
 
@@ -830,6 +843,258 @@ function renderConsultoresSection(){
 </div>`;
 }
 
+
+// ══════════════════════════════════════════════
+// PROJ DATA (fictício)
+// ══════════════════════════════════════════════
+const ETAPAS={inicio:{l:'Início',p:5,c:'#94a3b8'},definicao:{l:'Definição de itens',p:20,c:'#60a5fa'},homologacao:{l:'Em fase de Homologação',p:40,c:'#f59e0b'},definido:{l:'Definido Tecnicamente',p:60,c:'#a78bfa'},negociacao:{l:'Em Negociação',p:80,c:'#34d399'},aprovado:{l:'Aprovado',p:90,c:'#10b981'},fechamento_parcial:{l:'Fechamento Parcial',p:95,c:'#059669'},fechamento_total:{l:'Fechamento Total',p:100,c:'#047857'},perdido:{l:'Perdido',p:0,c:'#f87171'}};
+const PROJ_DATA=[
+  {id:1,name:'Prefeitura de Campinas',desc:'Implantação de CFTV nos 12 prédios da administração municipal.',etapa:'negociacao',deadline:'2026-03-15',valor:187000,codgestao:'CG-2024-001',revenda:'TechVision Campinas',ro:'OP-03322',vendedor:'Felipe Matos',segs:['Segurança Eletrônica'],fabs:['Intelbras'],tasks:[{text:'Enviar proposta revisada',done:false,priority:'alta'},{text:'Reunião com TI da prefeitura',done:true,priority:'media'}],notes:[{text:'Cliente pediu desconto de 5%.',date:'20/01/2026 14:32'}],updates:[{etapa:'negociacao',comment:'Proposta enviada.',date:'15/01/2026 11:00'}]},
+  {id:2,name:'Hospital São Lucas',desc:'Upgrade de rede e telefonia IP.',etapa:'homologacao',deadline:'2026-05-30',valor:312500,codgestao:'CG-2024-002',revenda:'NetCorp Solutions',ro:'OP-04410',vendedor:'Felipe Matos',segs:['Redes','Comunicação Unificada'],fabs:['Intelbras','Fanvil'],tasks:[{text:'Homologar equipamentos',done:false,priority:'alta'}],notes:[{text:'Compatibilidade com sistema legado.',date:'05/02/2026 10:15'}],updates:[{etapa:'homologacao',comment:'Fase de homologação iniciada.',date:'01/02/2026 09:30'}]},
+  {id:3,name:'Banco Meridional',desc:'Cabeamento estruturado — 4 andares, 200 pontos.',etapa:'definido',deadline:'2026-04-10',valor:98000,codgestao:'CG-2024-003',revenda:'Infra Total',ro:'OP-05587',vendedor:'Felipe Matos',segs:['Cabeamento Estruturado'],fabs:['Commscope'],tasks:[{text:'Entrega do projeto executivo',done:false,priority:'alta'}],notes:[],updates:[{etapa:'definido',comment:'Especificações aprovadas.',date:'20/01/2026 16:00'}]},
+  {id:4,name:'Condomínio Park Avenue',desc:'Controle de acesso e interfone IP.',etapa:'aprovado',deadline:'2026-03-01',valor:54800,codgestao:'CG-2024-004',revenda:'SecurHome',ro:'OP-06123',vendedor:'Felipe Matos',segs:['Controle de Acesso'],fabs:['Intelbras'],tasks:[{text:'Instalar controladores',done:false,priority:'media'}],notes:[{text:'Integração com app de portaria solicitada.',date:'18/01/2026 09:00'}],updates:[{etapa:'aprovado',comment:'Contrato assinado.',date:'15/01/2026 14:00'}]},
+  {id:5,name:'Indústria Metalúrgica Ômega',desc:'Energia ininterrupta e cabeamento industrial.',etapa:'fechamento_parcial',deadline:'2026-02-28',valor:421000,codgestao:'CG-2024-005',revenda:'PowerNet Industrial',ro:'OP-07891',vendedor:'Felipe Matos',segs:['Energia'],fabs:['Prysmian'],tasks:[{text:'NF da primeira parcela',done:false,priority:'alta'}],notes:[{text:'Cliente satisfeito com fase 1.',date:'01/02/2026 11:00'}],updates:[{etapa:'fechamento_parcial',comment:'Fase 1 aprovada.',date:'31/01/2026 17:00'}]},
+  {id:6,name:'Escola Prof. Antônio Lima',desc:'Rede e Wi-Fi para laboratório.',etapa:'perdido',deadline:'2026-03-20',valor:67200,codgestao:'CG-2024-006',revenda:'EduTech Soluções',ro:'OP-10056',vendedor:'Felipe Matos',segs:['Redes'],fabs:['Outro'],tasks:[],notes:[{text:'Licitação perdida para concorrente.',date:'28/01/2026 16:00'}],updates:[{etapa:'perdido',comment:'Perdemos a licitação.',date:'28/01/2026 16:00'}]},
+];
+let projFiltro='todos',projDetalhe=null;
+function fmtVal(v){return'R$ '+v.toLocaleString('pt-BR');}
+
+// ══════════════════════════════════════════════
+// PROJ DASH
+// ══════════════════════════════════════════════
+function renderProjDash(){
+  const ativos=PROJ_DATA.filter(p=>p.etapa!=='perdido'&&p.etapa!=='fechamento_total');
+  const pipeline=ativos.reduce((s,p)=>s+p.valor,0);
+  const total=PROJ_DATA.filter(p=>p.etapa==='fechamento_total').length;
+  const taxaConv=PROJ_DATA.length>0?Math.round(total/PROJ_DATA.length*100):0;
+  const ticket=ativos.length>0?Math.round(pipeline/ativos.length):0;
+  const hoje=new Date();
+  const atrasados=PROJ_DATA.filter(p=>p.etapa!=='perdido'&&p.etapa!=='fechamento_total'&&p.deadline&&new Date(p.deadline)<hoje).length;
+  const criticas=PROJ_DATA.reduce((s,p)=>s+(p.tasks||[]).filter(t=>!t.done&&t.priority==='alta').length,0);
+  // etapas para bar
+  const etapaOrder=['inicio','definicao','homologacao','definido','negociacao','aprovado','fechamento_parcial','fechamento_total'];
+  const etapaVals=etapaOrder.map(k=>({k,l:ETAPAS[k].l,v:PROJ_DATA.filter(p=>p.etapa===k).reduce((s,p)=>s+p.valor,0),c:ETAPAS[k].c}));
+  const maxVal=Math.max(...etapaVals.map(e=>e.v),1);
+  // risco
+  const emRisco=PROJ_DATA.filter(p=>p.etapa!=='perdido'&&p.etapa!=='fechamento_total'&&p.deadline&&new Date(p.deadline)<hoje).slice(0,5);
+  // top oportunidades
+  const top=PROJ_DATA.filter(p=>p.etapa!=='perdido').sort((a,b)=>b.valor-a.valor).slice(0,5);
+  // ultimas movimentacoes
+  const moves=[];
+  PROJ_DATA.forEach(p=>(p.updates||[]).forEach(u=>moves.push({...u,proj:p.name,vendedor:p.vendedor})));
+  moves.sort((a,b)=>b.date.localeCompare(a.date));
+  const lastMoves=moves.slice(0,8);
+
+  return`<div class="dash-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:1.25rem">
+  <div class="dash-card"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">💰 Pipeline ativo</div><div class="dash-num" style="font-size:18px">${fmtVal(pipeline)}</div></div>
+  <div class="dash-card"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">📈 Taxa de conversão</div><div class="dash-num" style="font-size:22px;color:var(--green)">${taxaConv}%</div></div>
+  <div class="dash-card"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">🎫 Ticket médio</div><div class="dash-num" style="font-size:18px">${fmtVal(ticket)}</div></div>
+  <div class="dash-card"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">⏰ Atrasados</div><div class="dash-num" style="font-size:22px;color:${atrasados>0?'var(--red)':'var(--green)'}">${atrasados}</div></div>
+  <div class="dash-card"><div style="font-size:11px;color:var(--gray-500);margin-bottom:4px">🔴 Tarefas críticas</div><div class="dash-num" style="font-size:22px;color:${criticas>0?'var(--red)':'var(--green)'}">${criticas}</div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 320px;gap:1.25rem;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="section-label">Pipeline por etapa</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:160px;padding:0 4px">
+      ${etapaVals.filter(e=>e.v>0).map(e=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="font-size:10px;color:var(--gray-500);font-weight:600">${fmtVal(e.v)}</div>
+        <div style="width:100%;background:${e.c};border-radius:4px 4px 0 0;height:${Math.round(e.v/maxVal*120)}px;min-height:4px"></div>
+        <div style="font-size:9px;color:var(--gray-500);text-align:center;line-height:1.2;max-width:60px">${e.l}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-label">⚠ Projetos em risco</div>
+    ${emRisco.length===0?`<div class="empty-state" style="padding:.5rem">Nenhum projeto atrasado.</div>`:emRisco.map(p=>{
+      const dias=Math.ceil((hoje-new Date(p.deadline))/(864e5));
+      return`<div style="padding:8px 0;border-bottom:1px solid var(--gray-200)">
+        <div style="font-size:13px;font-weight:600">${p.name}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px">
+          <span style="font-size:11px;color:var(--red)">${dias} dias atrasado</span>
+          <span class="badge badge-seg" style="font-size:10px">${ETAPAS[p.etapa].l}</span>
+        </div>
+        <div class="checklist-bar" style="margin-top:4px"><div class="checklist-fill" style="width:${ETAPAS[p.etapa].p}%"></div></div>
+      </div>`;}).join('')}
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 280px;gap:1.25rem;margin-bottom:1.25rem">
+  <div class="card">
+    <div class="section-label">Top oportunidades</div>
+    ${top.map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-200);cursor:pointer" onclick="projDetalhe=${p.id};curView='projetos';buildNav();render()">
+      <div style="width:22px;height:22px;border-radius:50%;background:${i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--gray-200)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.name}</div><div style="font-size:11px;color:var(--gray-500)">${p.vendedor} · ${ETAPAS[p.etapa].l}</div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--green)">${fmtVal(p.valor)}</div>
+    </div>`).join('')}
+  </div>
+  <div class="card" style="position:sticky;top:0">
+    <div class="section-label">Por fabricante</div>
+    ${(()=>{const fm={};PROJ_DATA.forEach(p=>(p.fabs||[]).forEach(f=>{fm[f]=(fm[f]||0)+1;}));const total=Object.values(fm).reduce((a,b)=>a+b,0);const colors=['#34d399','#60a5fa','#f59e0b','#a78bfa','#f87171','#94a3b8'];return Object.entries(fm).map(([f,v],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px"><div style="width:10px;height:10px;border-radius:2px;background:${colors[i%colors.length]};flex-shrink:0"></div><span style="flex:1">${f}</span><strong>${Math.round(v/total*100)}%</strong></div>`).join('');})()}
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-label">Últimas movimentações</div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="border-bottom:2px solid var(--gray-200)">${['Projeto','Vendedor','Etapa','Movimentação','Data'].map(h=>`<th style="text-align:left;padding:6px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--gray-500)">${h}</th>`).join('')}</tr></thead>
+    <tbody>${lastMoves.map(m=>`<tr style="border-bottom:1px solid var(--gray-200)">
+      <td style="padding:8px 10px;font-weight:500">${m.proj}</td>
+      <td style="padding:8px 10px;color:var(--gray-500)">${m.vendedor}</td>
+      <td style="padding:8px 10px"><span class="badge badge-seg" style="font-size:10px;background:${ETAPAS[m.etapa]?.c||'#e5e7eb'}20;border-color:${ETAPAS[m.etapa]?.c||'#e5e7eb'};color:var(--gray-900)">${ETAPAS[m.etapa]?.l||m.etapa}</span></td>
+      <td style="padding:8px 10px">${m.comment}</td>
+      <td style="padding:8px 10px;color:var(--gray-500);white-space:nowrap">${m.date}</td>
+    </tr>`).join('')}</tbody>
+  </table>
+</div>`;
+}
+
+// ══════════════════════════════════════════════
+// PROJETOS LIST
+// ══════════════════════════════════════════════
+function renderProjetos(){
+  if(projDetalhe) return renderProjDetalhe(projDetalhe);
+  const filtros=[{k:'todos',l:'Todos'},{k:'ativo',l:'Em andamento'},{k:'aprovado',l:'Aprovado'},{k:'fechamento',l:'Fechamento'},{k:'perdido',l:'Perdido'}];
+  const filtered=PROJ_DATA.filter(p=>{
+    if(projFiltro==='ativo') return!['perdido','fechamento_total','fechamento_parcial'].includes(p.etapa);
+    if(projFiltro==='aprovado') return p.etapa==='aprovado';
+    if(projFiltro==='fechamento') return['fechamento_parcial','fechamento_total'].includes(p.etapa);
+    if(projFiltro==='perdido') return p.etapa==='perdido';
+    return true;
+  });
+  return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+  <div class="filter-row" style="margin-bottom:0">${filtros.map(f=>`<button class="filter-chip ${projFiltro===f.k?'active':''}" onclick="projFiltro='${f.k}';render()">${f.l}</button>`).join('')}</div>
+  <button class="btn btn-green" onclick="alert('Em breve: integração com banco de dados.')">+ Novo projeto</button>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+${filtered.map(p=>`<div class="card" style="cursor:pointer" onclick="projDetalhe=${p.id};render()">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+    <div style="font-size:14px;font-weight:700;flex:1">${p.name}</div>
+    <span class="badge badge-seg" style="font-size:10px;margin-left:6px;flex-shrink:0;background:${ETAPAS[p.etapa].c}20;border-color:${ETAPAS[p.etapa].c}">${ETAPAS[p.etapa].l}</span>
+  </div>
+  <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">${p.desc}</div>
+  <div class="checklist-bar" style="margin-bottom:4px"><div class="checklist-fill" style="width:${ETAPAS[p.etapa].p}%;background:${ETAPAS[p.etapa].c}"></div></div>
+  <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray-500);margin-bottom:8px"><span>${ETAPAS[p.etapa].p}%</span><span>Prazo: ${dateStr(p.deadline)}</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:12px">
+    <span style="font-weight:600;color:var(--green)">${fmtVal(p.valor)}</span>
+    <span style="color:var(--gray-500)">${p.ro}</span>
+  </div>
+</div>`).join('')}
+</div>`;
+}
+
+function renderProjDetalhe(id){
+  const p=PROJ_DATA.find(x=>x.id===id);if(!p)return'';
+  const e=ETAPAS[p.etapa];
+  return`<button class="btn btn-sm" style="margin-bottom:1rem" onclick="projDetalhe=null;render()">← Voltar</button>
+<div class="detail-wrap">
+<div>
+  <div class="card" style="margin-bottom:1.25rem">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem">
+      <div><div style="font-size:20px;font-weight:700">${p.name}</div><div style="font-size:12px;color:var(--gray-500);margin-top:3px">${p.desc}</div></div>
+      <span class="badge badge-seg" style="font-size:11px;background:${e.c}20;border-color:${e.c};flex-shrink:0;margin-left:10px">${e.l}</span>
+    </div>
+    <div class="checklist-bar" style="height:8px;margin-bottom:8px"><div class="checklist-fill" style="width:${e.p}%;background:${e.c}"></div></div>
+    <div class="info-grid">
+      <div class="info-row"><span class="info-label">Revenda</span><span class="info-val">${p.revenda}</span></div>
+      <div class="info-row"><span class="info-label">RO / Pedido</span><span class="info-val">${p.ro}</span></div>
+      <div class="info-row"><span class="info-label">Cód. Gestão</span><span class="info-val">${p.codgestao}</span></div>
+      <div class="info-row"><span class="info-label">Prazo</span><span class="info-val">${dateStr(p.deadline)}</span></div>
+      <div class="info-row"><span class="info-label">Valor estimado</span><span class="info-val" style="color:var(--green);font-weight:700">${fmtVal(p.valor)}</span></div>
+      <div class="info-row"><span class="info-label">Fabricantes</span><span class="info-val">${(p.fabs||[]).join(', ')}</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-label">Tarefas do projeto (${(p.tasks||[]).filter(t=>!t.done).length} pendentes)</div>
+    ${(p.tasks||[]).length===0?`<div class="empty-state" style="padding:.75rem">Nenhuma tarefa.</div>`:(p.tasks||[]).map(t=>`<div class="task-item">
+      <input type="checkbox" class="task-cb" ${t.done?'checked':''} disabled>
+      <div><div class="task-text ${t.done?'done':''}">${t.text}</div><div class="task-meta">${t.priority?`<span class="pb ${t.priority==='alta'?'ph':t.priority==='media'?'pm':'pl'}">● ${t.priority.charAt(0).toUpperCase()+t.priority.slice(1)}</span>`:''}</div></div>
+    </div>`).join('')}
+    <div style="margin-top:8px;font-size:11px;color:var(--amber)">⚠ Integração com banco de dados em breve</div>
+  </div>
+</div>
+<div class="card" style="position:sticky;top:0;max-height:calc(100vh - 100px);overflow-y:auto">
+  <div class="section-label">Linha do tempo</div>
+  ${(p.updates||[]).map(u=>`<div class="tl-item"><div class="tl-dot"></div><div><div class="tl-date">${u.date}</div><div class="tl-text">${u.comment}</div>${u.etapa?`<span class="badge badge-seg" style="font-size:10px;margin-top:3px">${ETAPAS[u.etapa]?.l||u.etapa}</span>`:''}</div></div>`).join('')}
+  ${(p.notes||[]).map(n=>`<div class="tl-item"><div class="tl-dot" style="background:var(--amber)"></div><div><div class="tl-date">${n.date}</div><div class="tl-text">${n.text}</div></div></div>`).join('')}
+</div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════
+// CARTEIRA DE CLIENTES
+// ══════════════════════════════════════════════
+let carteiraFiltro='geral';
+function renderCarteira(){
+  const carteira=cacheClients.filter(c=>c.status==='carteira');
+  const inativos=cacheClients.filter(c=>c.status==='inativo');
+  const hoje=new Date();
+  const churnDays=30;
+  const churn=carteira.filter(c=>{
+    const lastTask=cacheTasks.filter(t=>t.client_id===c.id&&t.done&&t.done_at).sort((a,b)=>new Date(b.done_at)-new Date(a.done_at))[0];
+    const lastNote=cacheNotes.filter(n=>n.client_id===c.id).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
+    const lastAct=lastTask||lastNote;
+    if(!lastAct) return true;
+    const date=new Date(lastTask?lastTask.done_at:lastNote.created_at);
+    return(hoje-date)/(864e5)>churnDays;
+  });
+  const filtros=[{k:'geral',l:`Geral (${carteira.length})`},{k:'churn',l:`Churn (${churn.length})`},{k:'inativos',l:`Inativos (${inativos.length})`}];
+  let list=carteiraFiltro==='churn'?churn:carteiraFiltro==='inativos'?inativos:carteira;
+  return`<div class="dash-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.25rem">
+  <div class="dash-card"><div class="dash-num" style="color:var(--green)">${carteira.length}</div><div class="dash-label">Clientes em carteira</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${churn.length>0?'var(--amber)':'var(--green)'}">${churn.length}</div><div class="dash-label">Em risco de churn</div><div class="dash-sub">Sem interação +${churnDays} dias</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:var(--gray-500)">${inativos.length}</div><div class="dash-label">Inativos / Descarte</div></div>
+</div>
+<div class="filter-row" style="margin-bottom:1rem">${filtros.map(f=>`<button class="filter-chip ${carteiraFiltro===f.k?'active':''}" onclick="carteiraFiltro='${f.k}';render()">${f.l}</button>`).join('')}</div>
+${list.length===0?`<div class="empty-state">Nenhum cliente nessa categoria.</div>`:list.map(c=>{
+  const tasks=cacheTasks.filter(t=>t.client_id===c.id);
+  const pending=tasks.filter(t=>!t.done).length;
+  return`<div class="client-card ${c.temp?'temp-'+c.temp:''} status-carteira" onclick="curView='clientes';curClient='${c.id}';buildNav();render()">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div style="font-size:15px;font-weight:600">${c.name}</div><div style="font-size:12px;color:var(--gray-500);margin-top:2px">${[c.segment,c.contact].filter(Boolean).join(' · ')}</div></div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+        ${c.temp?`<span class="badge badge-${c.temp}">${c.temp.charAt(0).toUpperCase()+c.temp.slice(1)}</span>`:''}
+        ${pending>0?`<span class="pb pl">${pending} tarefa${pending>1?'s':''}</span>`:''}
+      </div>
+    </div>
+    ${c.cnpj?`<div style="font-size:11px;color:var(--gray-500);margin-top:5px">CNPJ: ${c.cnpj} ${c.segment?`· <span class="badge badge-seg">${c.segment}</span>`:''}</div>`:''}
+  </div>`;}).join('')}`;
+}
+
+// ══════════════════════════════════════════════
+// CAMPANHAS
+// ══════════════════════════════════════════════
+function renderCampanhas(tipo){
+  return`<div style="display:flex;gap:8px;margin-bottom:1.25rem">
+  <button class="filter-chip ${tipo==='voce'?'active':''}" onclick="navTo('camp-voce')">Para Você</button>
+  <button class="filter-chip ${tipo==='clientes'?'active':''}" onclick="navTo('camp-clientes')">Para Clientes</button>
+</div>
+<div class="card" style="text-align:center;padding:3rem 2rem">
+  <div style="font-size:40px;margin-bottom:1rem">${tipo==='voce'?'📬':'📤'}</div>
+  <div style="font-size:16px;font-weight:700;margin-bottom:.5rem">${tipo==='voce'?'Campanhas para Você':'Campanhas para Clientes'}</div>
+  <div style="font-size:13px;color:var(--gray-500);max-width:400px;margin:0 auto;line-height:1.6">${tipo==='voce'?'Comunicados internos, novidades de produtos e promoções da PLANTEC para o consultor.':'Materiais prontos para enviar ao cliente: PDFs, mensagens modelo e conteúdos de apoio à venda.'}</div>
+  <div style="margin-top:1.5rem;display:inline-flex;align-items:center;gap:6px;background:var(--amber-light);color:var(--amber);border:1px solid var(--amber-mid);padding:8px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:600">⏳ Em breve</div>
+</div>`;
+}
+
+// ══════════════════════════════════════════════
+// CONSULTA CNPJ
+// ══════════════════════════════════════════════
+function renderCNPJ(){
+  return`<div class="card" style="max-width:520px;margin:0 auto">
+  <div style="text-align:center;margin-bottom:1.5rem">
+    <div style="font-size:32px;margin-bottom:.5rem">🔍</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:.25rem">Consulta CNPJ</div>
+    <div style="font-size:13px;color:var(--gray-500)">Valide o cadastro e identifique o programa Intelbras do cliente</div>
+  </div>
+  <div class="form-group"><label>CNPJ</label><input id="cnpj-input" placeholder="00.000.000/0001-00" oninput="this.value=this.value.replace(/\D/g,'').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5').slice(0,18)"></div>
+  <button class="btn btn-green btn-full" onclick="alert('Em breve: integração com validador CNPJ Intelbras.')">Consultar</button>
+  <div style="margin-top:1.25rem;background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--green-text)">
+    ℹ️ A integração com o portal Intelbras será configurada em breve. Por enquanto, consulte manualmente em <a href="https://portalsouparceiro.intelbras.com.br" target="_blank" style="color:var(--green);font-weight:600">portalsouparceiro.intelbras.com.br</a>
+  </div>
+</div>`;
+}
+
 // ══════════════════════════════════════════════
 // PRACTICES
 // ══════════════════════════════════════════════
@@ -1012,9 +1277,11 @@ async function addNote(cid){
   cacheNotes.unshift(note);render();toast('Anotação registrada!');
 }
 
-async function setTemp(id,temp){
+async function setTemp(id,newTemp){
+  const c=cacheClients.find(x=>x.id===id);if(!c)return;
+  const temp=c.temp===newTemp?'':newTemp;
   await sb.from('clients').update({temp,updated_at:new Date().toISOString()}).eq('id',id);
-  const c=cacheClients.find(x=>x.id===id);if(c)c.temp=temp;render();
+  c.temp=temp;render();
 }
 
 async function setStatus(id,status){
