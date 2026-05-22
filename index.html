@@ -327,6 +327,7 @@ async function initApp(user){
   await loadData();
   document.getElementById('topbar-title').textContent=profile.role==='gestor'?'Dashboard':'Clientes';
   render();
+  setupRealtime();
 }
 
 async function doLogout(){
@@ -1081,6 +1082,55 @@ function downloadModeloLeads(){
 function downloadModeloProdutos(){
   function _dl(){const ws=XLSX.utils.aoa_to_sheet([['Código','DESCRIÇÃO','Segmento']]);ws['!cols']=[{wch:12},{wch:50},{wch:16}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Produtos');XLSX.writeFile(wb,'MODELO_Produtos_Monitoramento.xlsx');}
   if(typeof XLSX!=='undefined'){_dl();}else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=_dl;document.head.appendChild(s);}
+}
+
+// ══════════════════════════════════════════════
+// REALTIME
+// ══════════════════════════════════════════════
+let realtimeChannel=null;
+function setupRealtime(){
+  if(realtimeChannel) sb.removeChannel(realtimeChannel);
+  realtimeChannel=sb.channel('db-changes')
+    .on('postgres_changes',{event:'*',schema:'public',table:'clients'},async()=>{
+      await reloadClients();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'tasks'},async()=>{
+      await reloadTasks();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'notes'},async()=>{
+      await reloadNotes();
+    })
+    .subscribe((status)=>{
+      if(status==='SUBSCRIBED'){
+        console.log('Realtime conectado ✅');
+      }
+    });
+}
+
+async function reloadClients(){
+  const isGestor=curProfile.role==='gestor';
+  let q=sb.from('clients').select('*').order('created_at',{ascending:false});
+  if(!isGestor) q=q.eq('user_id',curProfile.id);
+  const {data}=await q;
+  cacheClients=data||[];
+  // só re-renderiza se não estiver no detalhe de um cliente (evita perder foco)
+  if(!curClient) render();
+}
+
+async function reloadTasks(){
+  const clientIds=cacheClients.map(c=>c.id);
+  if(!clientIds.length){cacheTasks=[];return;}
+  const {data}=await sb.from('tasks').select('*').in('client_id',clientIds).order('created_at',{ascending:true});
+  cacheTasks=data||[];
+  if(!curClient) render();
+}
+
+async function reloadNotes(){
+  const clientIds=cacheClients.map(c=>c.id);
+  if(!clientIds.length){cacheNotes=[];return;}
+  const {data}=await sb.from('notes').select('*').in('client_id',clientIds).order('created_at',{ascending:false});
+  cacheNotes=data||[];
+  if(!curClient) render();
 }
 
 // ══════════════════════════════════════════════
