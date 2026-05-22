@@ -398,11 +398,11 @@ function buildNav(){
   function inGroup(parentKey){const grp=subGroups;const keys=Object.keys(grp).filter(k=>grp[k][0]===parentKey||grp[k].includes(parentKey));return sidebarExpandedKey===parentKey||keys.some(k=>k===curView);}
   document.getElementById('sb-nav').innerHTML=navItems.map(n=>{
     if(n.sub||(n.sub_gestor&&isGestor)){
-      const isOpen=inGroup(n.sub[0].key)||inGroup(n.sub[1]?.key);
-      const isActive=inGroup(n.key)||curView===n.key;
-      // clicking parent when open → collapse (go to first non-sub view); when closed → open first sub
-      const clickAction=isOpen?`sidebarExpandedKey=null;navTo('${n.sub[0].key}')`:`sidebarExpandedKey='${n.key}';navTo('${n.sub[0].key}')`;
-      const subList=n.sub_gestor&&isGestor?n.sub_gestor:n.sub;
+      const subList=n.sub_gestor&&isGestor?n.sub_gestor:(n.sub||[]);
+      const firstKey=subList[0]?.key||n.key;
+      const isOpen=subList.some(s=>inGroup(s.key));
+      const isActive=subList.some(s=>inGroup(s.key))||curView===n.key;
+      const clickAction=isOpen?`sidebarExpandedKey=null;navTo('${firstKey}')`:`sidebarExpandedKey='${n.key}';navTo('${firstKey}')`;
       return`<div><button class="sbi ${isActive?'active':''}" onclick="${clickAction}"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label} ${isOpen?'▾':'▸'}</span></button>${isOpen?`<div style="padding:2px 0 2px 28px">${subList.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="sidebarExpandedKey='${n.key}';navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
     }
     return`<button class="sbi ${curView===n.key?'active':''}" onclick="sidebarExpandedKey=null;navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
