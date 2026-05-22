@@ -322,8 +322,10 @@ async function initApp(user){
   document.getElementById('app-screen').style.display='flex';
   document.getElementById('sb-user').textContent=profile.full_name||profile.username;
   document.getElementById('sb-role-label').textContent=profile.role==='gestor'?'Gestor':'Consultor';
+  curView=profile.role==='gestor'?'dashboard':'clientes';
   buildNav();
   await loadData();
+  document.getElementById('topbar-title').textContent=profile.role==='gestor'?'Dashboard':'Clientes';
   render();
 }
 
