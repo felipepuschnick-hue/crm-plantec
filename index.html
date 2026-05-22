@@ -214,6 +214,33 @@ label{font-size:12px;font-weight:600;color:var(--gray-700)}
 .cfg-sec{border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:1rem;margin-bottom:1rem}
 .cfg-sec-title{font-size:13px;font-weight:700;margin-bottom:.4rem}
 .cfg-sec-sub{font-size:12px;color:var(--gray-500);margin-bottom:.75rem;line-height:1.5}
+
+/* CNPJ BUSCADOR */
+.cnpj-search-wrap{position:relative;margin-bottom:1rem}
+.cnpj-search-input{width:100%;padding:11px 14px 11px 40px;border:1.5px solid var(--gray-300);border-radius:var(--radius-sm);font-size:14px;outline:none;transition:border-color .15s}
+.cnpj-search-input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+.cnpj-search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none}
+.cnpj-result-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)}
+.cnpj-card-top{padding:.9rem 1.25rem;border-bottom:1px solid var(--gray-200)}
+.cnpj-card-name{font-size:15px;font-weight:700}
+.cnpj-card-cnpj{font-size:12px;color:var(--gray-500);font-family:monospace;margin-top:2px}
+.cnpj-programs{padding:.75rem 1.25rem;display:flex;flex-direction:column;gap:8px}
+.cnpj-program{border-radius:8px;padding:10px 12px;border:1px solid}
+.cnpj-prog-header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cnpj-prog-label{display:flex;align-items:center;gap:6px}
+.cnpj-prog-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.cnpj-prog-badge{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.cnpj-prog-nivel{font-size:11px;font-weight:500;margin-top:3px;color:var(--gray-700)}
+.cnpj-prog-footer{margin-top:7px;display:flex;gap:7px;flex-wrap:wrap}
+.cnpj-prog-btn{font-size:11px;font-weight:600;padding:4px 10px;border-radius:5px;border:1.5px solid;cursor:pointer;background:transparent;transition:background .15s}
+.cnpj-ouro{background:#FFFBEB;border-color:#F59E0B}.cnpj-ouro .cnpj-prog-name{color:#92400E}.cnpj-ouro .cnpj-prog-badge{background:#FEF3C7;color:#92400E}.cnpj-ouro .cnpj-prog-btn{color:#92400E;border-color:#F59E0B}.cnpj-ouro .cnpj-prog-btn:hover{background:#FEF3C7}
+.cnpj-monit{background:#E3F2FD;border-color:#90CAF9}.cnpj-monit .cnpj-prog-name{color:#1565C0}.cnpj-monit .cnpj-prog-badge{background:#BBDEFB;color:#1565C0}.cnpj-monit .cnpj-prog-btn{color:#1565C0;border-color:#90CAF9}.cnpj-monit .cnpj-prog-btn:hover{background:#BBDEFB}
+.cnpj-pme{background:var(--green-light);border-color:var(--green-mid)}.cnpj-pme .cnpj-prog-name{color:var(--green-dark)}.cnpj-pme .cnpj-prog-badge{background:#C8E6C9;color:var(--green-dark)}.cnpj-pme .cnpj-prog-btn{color:var(--green-dark);border-color:var(--green-mid)}.cnpj-pme .cnpj-prog-btn:hover{background:var(--green-light)}
+.cnpj-portaria{background:#F3E5F5;border-color:#CE93D8}.cnpj-portaria .cnpj-prog-name{color:#4A148C}.cnpj-portaria .cnpj-prog-badge{background:#E1BEE7;color:#4A148C}.cnpj-portaria .cnpj-prog-btn{color:#4A148C;border-color:#CE93D8}.cnpj-portaria .cnpj-prog-btn:hover{background:#E1BEE7}
+.cnpj-incendio{background:#FFF3E0;border-color:#FFCC80}.cnpj-incendio .cnpj-prog-name{color:#E65100}.cnpj-incendio .cnpj-prog-badge{background:#FFE0B2;color:#E65100}.cnpj-incendio .cnpj-prog-btn{color:#E65100;border-color:#FFCC80}.cnpj-incendio .cnpj-prog-btn:hover{background:#FFE0B2}
+.cnpj-blocked{background:var(--red-light);border:1.5px solid var(--red-mid);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.cnpj-state{text-align:center;padding:2.5rem 1rem;color:var(--gray-500)}
+.cnpj-state-icon{font-size:36px;margin-bottom:.5rem}
 </style>
 </head>
 <body>
@@ -272,9 +299,10 @@ const sb=createClient(SB_URL,SB_KEY);
 // ══════════════════════════════════════════════
 let curUser=null,curProfile=null;
 let curView='clientes',curClient=null,crmFilter='prospecto',segAtivo='monitoramento';
-let sidebarCol=false,tvSearch='',tvFilter='todas',tvShowDone=false,tvTimer=null;
+let sidebarCol=false,tvSearch='',tvFilter='todas',tvTimer=null;
 let dashConsultor=null;
 let dashConsultorFilter='todos';
+let sidebarExpandedKey=null;
 
 // cache
 let cacheClients=[],cacheTasks=[],cacheNotes=[],cacheProdutos=[];
@@ -317,7 +345,16 @@ async function doLogin(){
 
 async function initApp(user){
   curUser=user;
-  const {data:profile}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  const {data:profile,error:perr}=await sb.from('profiles').select('*').eq('id',user.id).single();
+  if(perr||!profile){
+    // profile not found or RLS block — sign out and show login
+    await sb.auth.signOut();
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app-screen').style.display='none';
+    const err=document.getElementById('login-err');
+    if(err){err.style.display='block';err.textContent='Perfil não encontrado. Contacte o gestor.';}
+    return;
+  }
   curProfile=profile;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='flex';
@@ -329,6 +366,8 @@ async function initApp(user){
   document.getElementById('topbar-title').textContent='Dashboard';
   render();
   setupRealtime();
+  // load CNPJ from Supabase
+  await loadCNPJDB();
 }
 
 async function doLogout(){
@@ -349,25 +388,34 @@ function buildNav(){
     {key:'tarefas',icon:'✅',label:'Tarefas'},
     {key:'clientes',icon:'👥',label:'Clientes'},
     {key:'practices',icon:'📋',label:'Melhores Práticas'},
-    {key:'proj-dash',icon:'📁',label:'Gestão de Projetos',sub:[{key:'proj-dash',label:'Dashboard'},{key:'projetos',label:'Projetos'}]},
+    {key:'proj',icon:'📁',label:'Gestão de Projetos',sub:[{key:'proj-dash',label:'Dashboard'},{key:'projetos',label:'Projetos'}]},
     {key:'carteira',icon:'💼',label:'Carteira de Clientes'},
-    {key:'campanhas',icon:'📣',label:'Campanhas',sub:[{key:'camp-voce',label:'Para Você'},{key:'camp-clientes',label:'Para Clientes'}]},
-    {key:'cnpj',icon:'🔍',label:'Consulta CNPJ'},
+    {key:'camp',icon:'📣',label:'Campanhas',sub:[{key:'camp-voce',label:'Para Você'},{key:'camp-clientes',label:'Para Clientes'}]},
+    {key:'cnpj',icon:'🔍',label:'Consulta CNPJ',sub_gestor:[{key:'cnpj',label:'Consulta'},{key:'cnpj-atualizar',label:'Atualizar Base'}]},
   ];
   const navItems=isGestor?[...baseNav,{key:'config',icon:'⚙',label:'Configurar'}]:baseNav;
-  const subViews={'proj-dash':['proj-dash','projetos'],'projetos':['proj-dash','projetos'],'camp-voce':['camp-voce','camp-clientes'],'camp-clientes':['camp-voce','camp-clientes']};
-  function parentActive(key){return subViews[curView]&&subViews[curView].includes(key)||curView===key;}
+  const subGroups={'proj-dash':['proj-dash','projetos'],'projetos':['proj-dash','projetos'],'camp-voce':['camp-voce','camp-clientes'],'camp-clientes':['camp-voce','camp-clientes'],'cnpj':['cnpj','cnpj-atualizar'],'cnpj-atualizar':['cnpj','cnpj-atualizar']};
+  function inGroup(parentKey){const grp=subGroups;const keys=Object.keys(grp).filter(k=>grp[k][0]===parentKey||grp[k].includes(parentKey));return sidebarExpandedKey===parentKey||keys.some(k=>k===curView);}
   document.getElementById('sb-nav').innerHTML=navItems.map(n=>{
-    if(n.sub){
-      const open=n.sub.some(s=>s.key===curView)||curView===n.key;
-      return`<div><button class="sbi ${parentActive(n.key)?'active':''}" onclick="navTo('${n.sub[0].key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>${open?`<div style="padding:2px 0 2px 32px">${n.sub.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
+    if(n.sub||(n.sub_gestor&&isGestor)){
+      const isOpen=inGroup(n.sub[0].key)||inGroup(n.sub[1]?.key);
+      const isActive=inGroup(n.key)||curView===n.key;
+      // clicking parent when open → collapse (go to first non-sub view); when closed → open first sub
+      const clickAction=isOpen?`sidebarExpandedKey=null;navTo('${n.sub[0].key}')`:`sidebarExpandedKey='${n.key}';navTo('${n.sub[0].key}')`;
+      const subList=n.sub_gestor&&isGestor?n.sub_gestor:n.sub;
+      return`<div><button class="sbi ${isActive?'active':''}" onclick="${clickAction}"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label} ${isOpen?'▾':'▸'}</span></button>${isOpen?`<div style="padding:2px 0 2px 28px">${subList.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="sidebarExpandedKey='${n.key}';navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
     }
-    return`<button class="sbi ${curView===n.key?'active':''}" onclick="navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
+    return`<button class="sbi ${curView===n.key?'active':''}" onclick="sidebarExpandedKey=null;navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
   }).join('');
 }
 
 function navTo(v){
   curView=v;curClient=null;dashConsultor=null;
+  // auto-expand parent if navigating to sub-item
+  if(['proj-dash','projetos'].includes(v)) sidebarExpandedKey='proj';
+  else if(['camp-voce','camp-clientes'].includes(v)) sidebarExpandedKey='camp';
+  else if(['cnpj','cnpj-atualizar'].includes(v)) sidebarExpandedKey='cnpj';
+  else sidebarExpandedKey=null;
   const labels={dashboard:'Dashboard',tarefas:'Tarefas',clientes:'Clientes',practices:'Melhores Práticas','proj-dash':'Gestão de Projetos',projetos:'Projetos',carteira:'Carteira de Clientes','camp-voce':'Campanhas — Para Você','camp-clientes':'Campanhas — Para Clientes',cnpj:'Consulta CNPJ',config:'Configurar'};
   document.getElementById('topbar-title').textContent=labels[v]||'';
   buildNav();render();
@@ -434,6 +482,7 @@ function render(){
   else if(curView==='camp-voce') el.innerHTML=renderCampanhas('voce');
   else if(curView==='camp-clientes') el.innerHTML=renderCampanhas('clientes');
   else if(curView==='cnpj') el.innerHTML=renderCNPJ();
+  else if(curView==='cnpj-atualizar') el.innerHTML=renderCNPJAtualizar();
   else if(curView==='config') el.innerHTML=renderConfig();
 }
 
@@ -593,7 +642,8 @@ function renderTarefas(){
   const allT=[];
   cacheTasks.forEach(t=>{
     if(!clientIds.has(t.client_id))return;
-    if(!tvShowDone&&t.done)return;
+    if(tvFilter==='concluidas'){if(!t.done)return;}
+    else if(t.done)return;
     const c=cacheClients.find(x=>x.id===t.client_id)||{};
     if(tvSearch&&!(c.name+' '+t.text).toLowerCase().includes(tvSearch.toLowerCase()))return;
     if(tvFilter==='atrasadas'&&(!isOverdue(t.due)||t.done))return;
@@ -605,8 +655,7 @@ function renderTarefas(){
   const pending=cacheTasks.filter(t=>clientIds.has(t.client_id)&&!t.done).length;
   return`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem">
   <div class="tv-swrap"><span class="tv-sicon">🔍</span><input class="tv-sinput" id="tv-si" placeholder="Buscar..." value="${tvSearch}" oninput="tvSearchDebounce(this.value)"></div>
-  ${['todas','pendentes','atrasadas','alta'].map(f=>`<button class="filter-chip ${tvFilter===f?'active':''}" onclick="tvFilter='${f}';render()">${f==='alta'?'Prioridade Alta':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
-  <button class="filter-chip ${tvShowDone?'active':''}" onclick="tvShowDone=!tvShowDone;render()">Concluídas</button>
+  ${['todas','pendentes','atrasadas','alta','concluidas'].map(f=>`<button class="filter-chip ${tvFilter===f?'active':''}" onclick="tvFilter='${f}';render()">${{todas:'Todas',pendentes:'Pendentes',atrasadas:'Atrasadas',alta:'Prioridade Alta',concluidas:'Concluídas'}[f]}</button>`).join('')}
   <span style="margin-left:auto;font-size:13px;color:var(--gray-500);font-weight:500">${pending} pendente${pending!==1?'s':''}</span>
 </div>
 ${allT.length===0?`<div class="empty-state">Nenhuma tarefa encontrada.</div>`:allT.map(t=>{
@@ -848,14 +897,7 @@ function renderConsultoresSection(){
 // PROJ DATA (fictício)
 // ══════════════════════════════════════════════
 const ETAPAS={inicio:{l:'Início',p:5,c:'#94a3b8'},definicao:{l:'Definição de itens',p:20,c:'#60a5fa'},homologacao:{l:'Em fase de Homologação',p:40,c:'#f59e0b'},definido:{l:'Definido Tecnicamente',p:60,c:'#a78bfa'},negociacao:{l:'Em Negociação',p:80,c:'#34d399'},aprovado:{l:'Aprovado',p:90,c:'#10b981'},fechamento_parcial:{l:'Fechamento Parcial',p:95,c:'#059669'},fechamento_total:{l:'Fechamento Total',p:100,c:'#047857'},perdido:{l:'Perdido',p:0,c:'#f87171'}};
-const PROJ_DATA=[
-  {id:1,name:'Prefeitura de Campinas',desc:'Implantação de CFTV nos 12 prédios da administração municipal.',etapa:'negociacao',deadline:'2026-03-15',valor:187000,codgestao:'CG-2024-001',revenda:'TechVision Campinas',ro:'OP-03322',vendedor:'Felipe Matos',segs:['Segurança Eletrônica'],fabs:['Intelbras'],tasks:[{text:'Enviar proposta revisada',done:false,priority:'alta'},{text:'Reunião com TI da prefeitura',done:true,priority:'media'}],notes:[{text:'Cliente pediu desconto de 5%.',date:'20/01/2026 14:32'}],updates:[{etapa:'negociacao',comment:'Proposta enviada.',date:'15/01/2026 11:00'}]},
-  {id:2,name:'Hospital São Lucas',desc:'Upgrade de rede e telefonia IP.',etapa:'homologacao',deadline:'2026-05-30',valor:312500,codgestao:'CG-2024-002',revenda:'NetCorp Solutions',ro:'OP-04410',vendedor:'Felipe Matos',segs:['Redes','Comunicação Unificada'],fabs:['Intelbras','Fanvil'],tasks:[{text:'Homologar equipamentos',done:false,priority:'alta'}],notes:[{text:'Compatibilidade com sistema legado.',date:'05/02/2026 10:15'}],updates:[{etapa:'homologacao',comment:'Fase de homologação iniciada.',date:'01/02/2026 09:30'}]},
-  {id:3,name:'Banco Meridional',desc:'Cabeamento estruturado — 4 andares, 200 pontos.',etapa:'definido',deadline:'2026-04-10',valor:98000,codgestao:'CG-2024-003',revenda:'Infra Total',ro:'OP-05587',vendedor:'Felipe Matos',segs:['Cabeamento Estruturado'],fabs:['Commscope'],tasks:[{text:'Entrega do projeto executivo',done:false,priority:'alta'}],notes:[],updates:[{etapa:'definido',comment:'Especificações aprovadas.',date:'20/01/2026 16:00'}]},
-  {id:4,name:'Condomínio Park Avenue',desc:'Controle de acesso e interfone IP.',etapa:'aprovado',deadline:'2026-03-01',valor:54800,codgestao:'CG-2024-004',revenda:'SecurHome',ro:'OP-06123',vendedor:'Felipe Matos',segs:['Controle de Acesso'],fabs:['Intelbras'],tasks:[{text:'Instalar controladores',done:false,priority:'media'}],notes:[{text:'Integração com app de portaria solicitada.',date:'18/01/2026 09:00'}],updates:[{etapa:'aprovado',comment:'Contrato assinado.',date:'15/01/2026 14:00'}]},
-  {id:5,name:'Indústria Metalúrgica Ômega',desc:'Energia ininterrupta e cabeamento industrial.',etapa:'fechamento_parcial',deadline:'2026-02-28',valor:421000,codgestao:'CG-2024-005',revenda:'PowerNet Industrial',ro:'OP-07891',vendedor:'Felipe Matos',segs:['Energia'],fabs:['Prysmian'],tasks:[{text:'NF da primeira parcela',done:false,priority:'alta'}],notes:[{text:'Cliente satisfeito com fase 1.',date:'01/02/2026 11:00'}],updates:[{etapa:'fechamento_parcial',comment:'Fase 1 aprovada.',date:'31/01/2026 17:00'}]},
-  {id:6,name:'Escola Prof. Antônio Lima',desc:'Rede e Wi-Fi para laboratório.',etapa:'perdido',deadline:'2026-03-20',valor:67200,codgestao:'CG-2024-006',revenda:'EduTech Soluções',ro:'OP-10056',vendedor:'Felipe Matos',segs:['Redes'],fabs:['Outro'],tasks:[],notes:[{text:'Licitação perdida para concorrente.',date:'28/01/2026 16:00'}],updates:[{etapa:'perdido',comment:'Perdemos a licitação.',date:'28/01/2026 16:00'}]},
-];
+const PROJ_DATA=[];;
 let projFiltro='todos',projDetalhe=null;
 function fmtVal(v){return'R$ '+v.toLocaleString('pt-BR');}
 
@@ -1080,19 +1122,230 @@ function renderCampanhas(tipo){
 // ══════════════════════════════════════════════
 // CONSULTA CNPJ
 // ══════════════════════════════════════════════
+// ── CNPJ DB (carregado do Supabase ou fallback vazio) ──
+let CNPJ_DB={contas_assistidas:{},ouro:{},monitoramento:{},pme:{},portaria_remota:{},incendio:{}};
+let cnpjNameIndex={};
+function buildCNPJIndex(){
+  cnpjNameIndex={};
+  Object.assign(cnpjNameIndex,CNPJ_DB.contas_assistidas);
+  Object.assign(cnpjNameIndex,CNPJ_DB.ouro);
+  for(const[c,v]of Object.entries(CNPJ_DB.monitoramento))if(!cnpjNameIndex[c])cnpjNameIndex[c]=v;
+  for(const[c,v]of Object.entries(CNPJ_DB.pme))if(!cnpjNameIndex[c])cnpjNameIndex[c]=v.nome||v;
+  for(const[c,v]of Object.entries(CNPJ_DB.portaria_remota))if(!cnpjNameIndex[c])cnpjNameIndex[c]=v.nome||v;
+  for(const[c,v]of Object.entries(CNPJ_DB.incendio))if(!cnpjNameIndex[c])cnpjNameIndex[c]=v;
+}
+function fmtCNPJ(d){return d.length===14?d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'):d;}
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtPct(v){return Math.round(v*100)+'%';}
+
+function cnpjSearch(q){
+  const el=document.getElementById('cnpj-results');if(!el)return;
+  const raw=q.trim();
+  if(!raw){el.innerHTML=`<div class="cnpj-state"><div class="cnpj-state-icon">🔍</div><div>Digite o CNPJ ou nome da empresa para consultar</div></div>`;return;}
+  const digits=raw.replace(/\D/g,'');
+  const lower=raw.toLowerCase();
+  const all=Object.keys(cnpjNameIndex);
+  const matches=all.filter(cnpj=>{
+    if(digits.length>=4&&cnpj.includes(digits))return true;
+    return(cnpjNameIndex[cnpj]||'').toLowerCase().includes(lower);
+  }).slice(0,15);
+  if(!matches.length){el.innerHTML=`<div class="cnpj-state"><div class="cnpj-state-icon">🔎</div><strong>Revenda não cadastrada em nenhum programa ativo</strong><div style="margin-top:4px;font-size:12px">Nenhum resultado para "${escHtml(raw)}"</div></div>`;return;}
+  el.innerHTML=matches.map(c=>cnpjCard(c)).join('');
+}
+
+function cnpjCard(cnpj){
+  const nome=cnpjNameIndex[cnpj]||'—';
+  if(CNPJ_DB.contas_assistidas[cnpj]){
+    return`<div class="cnpj-blocked"><span style="font-size:28px">🚫</span><div><div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em">Conta Assistida</div><div style="font-size:15px;font-weight:700">${escHtml(nome)}</div><div style="font-size:12px;font-family:monospace;color:var(--gray-500)">${fmtCNPJ(cnpj)}</div><div style="font-size:12px;color:var(--red);margin-top:3px">Atendimento Bloqueado — Canal Conta Assistida</div></div></div>`;
+  }
+  const progs=[];
+  const isOuro=!!CNPJ_DB.ouro[cnpj];
+  const isMonit=!!CNPJ_DB.monitoramento[cnpj];
+  if(isOuro)progs.push(`<div class="cnpj-program cnpj-ouro"><div class="cnpj-prog-header"><div class="cnpj-prog-label"><span>⭐</span><span class="cnpj-prog-name">Revenda Ouro</span></div><span class="cnpj-prog-badge">4% — Todo portfólio</span></div>${isMonit?`<div style="font-size:11px;color:#92400E;margin-top:4px">⚠️ Possui desconto combinado (Ouro + Monitoramento)</div>`:''}</div>`);
+  if(isMonit)progs.push(`<div class="cnpj-program cnpj-monit"><div class="cnpj-prog-header"><div class="cnpj-prog-label"><span>📡</span><span class="cnpj-prog-name">Monitoramento</span></div><span class="cnpj-prog-badge">10% — Itens autorizados</span></div><div class="cnpj-prog-footer"><button class="cnpj-prog-btn cnpj-monit" onclick="openModal('products')">🔎 Ver produtos elegíveis</button></div></div>`);
+  if(CNPJ_DB.pme[cnpj]){const p=CNPJ_DB.pme[cnpj];progs.push(`<div class="cnpj-program cnpj-pme"><div class="cnpj-prog-header"><div class="cnpj-prog-label"><span>🏢</span><span class="cnpj-prog-name">Revenda PME</span></div><span class="cnpj-prog-badge">${fmtPct(p.desconto||0.08)} — Todo portfólio</span></div><div class="cnpj-prog-nivel">Nível ${escHtml(p.nivel||'1')} · Parcelamento em até 10x sem juros</div></div>`);}
+  if(CNPJ_DB.portaria_remota[cnpj]){const p=CNPJ_DB.portaria_remota[cnpj];progs.push(`<div class="cnpj-program cnpj-portaria"><div class="cnpj-prog-header"><div class="cnpj-prog-label"><span>🏠</span><span class="cnpj-prog-name">Portaria Remota</span></div><span class="cnpj-prog-badge">${fmtPct(p.desconto||0.08)} — Todo portfólio</span></div><div class="cnpj-prog-nivel">Nível ${escHtml((p.nivel||'').replace('Nível ',''))} · Parcelamento em até 10x sem juros</div></div>`);}
+  if(CNPJ_DB.incendio[cnpj])progs.push(`<div class="cnpj-program cnpj-incendio"><div class="cnpj-prog-header"><div class="cnpj-prog-label"><span>🔥</span><span class="cnpj-prog-name">Incêndio</span></div><span class="cnpj-prog-badge">8% — Detecção e Alarme</span></div></div>`);
+  if(!progs.length)return'';
+  return`<div class="cnpj-result-card"><div class="cnpj-card-top"><div class="cnpj-card-name">${escHtml(nome)}</div><div class="cnpj-card-cnpj">${fmtCNPJ(cnpj)}</div></div><div class="cnpj-programs">${progs.join('')}</div></div>`;
+}
+
+function renderCNPJBuscador(){
+  const total=Object.keys(cnpjNameIndex).length;
+  return`<div style="max-width:640px">
+  <div class="cnpj-search-wrap"><span class="cnpj-search-icon">🔍</span><input class="cnpj-search-input" placeholder="Digite o CNPJ ou nome da empresa..." oninput="cnpjSearch(this.value)" autocomplete="off"></div>
+  ${total===0?`<div style="background:var(--amber-light);border:1px solid var(--amber-mid);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:#633806;margin-bottom:1rem">⚠️ Base de CNPJs não carregada. Acesse <b>Configurar → Consulta CNPJ → Atualizar Base</b> para importar os dados.</div>`:`<div style="font-size:11px;color:var(--gray-500);margin-bottom:1rem">${total.toLocaleString('pt-BR')} empresas na base</div>`}
+  <div id="cnpj-results"><div class="cnpj-state"><div class="cnpj-state-icon">🔍</div><div>Digite o CNPJ ou nome para consultar</div></div></div>
+</div>`;
+}
+
 function renderCNPJ(){
-  return`<div class="card" style="max-width:520px;margin:0 auto">
-  <div style="text-align:center;margin-bottom:1.5rem">
-    <div style="font-size:32px;margin-bottom:.5rem">🔍</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:.25rem">Consulta CNPJ</div>
-    <div style="font-size:13px;color:var(--gray-500)">Valide o cadastro e identifique o programa Intelbras do cliente</div>
+  const isGestor=curProfile.role==='gestor';
+  if(isGestor){
+    // gestor vê subtópicos via sidebar, aqui mostra direto Consulta
+    return renderCNPJBuscador();
+  }
+  return renderCNPJBuscador();
+}
+
+function renderCNPJAtualizar(){
+  const total=Object.keys(cnpjNameIndex).length;
+  return`<div style="max-width:580px">
+  <div class="cfg-sec">
+    <div class="cfg-sec-title">Atualizar Base de CNPJs — Programas Intelbras</div>
+    <div class="cfg-sec-sub">Importe o Excel com as abas no formato padrão (PRODUTOS MONITORAMENTO, REVENDA OURO, MONITORAMENTO, REVENDA PME, PORTARIA REMOTA, INCÊNDIO, CONTAS ASSISTIDAS).<br>A base anterior será substituída completamente.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label class="btn btn-green" style="cursor:pointer;display:inline-flex">📊 Importar Excel<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importCNPJMultiSheet(event)"></label>
+      ${total>0?`<span style="font-size:12px;color:var(--green)">✓ ${total.toLocaleString('pt-BR')} empresas na base</span>`:'<span style="font-size:12px;color:var(--gray-500)">Base vazia</span>'}
+    </div>
   </div>
-  <div class="form-group"><label>CNPJ</label><input id="cnpj-input" placeholder="00.000.000/0001-00" oninput="this.value=this.value.replace(/\D/g,'').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5').slice(0,18)"></div>
-  <button class="btn btn-green btn-full" onclick="alert('Em breve: integração com validador CNPJ Intelbras.')">Consultar</button>
-  <div style="margin-top:1.25rem;background:var(--green-light);border:1px solid var(--green-mid);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--green-text)">
-    ℹ️ A integração com o portal Intelbras será configurada em breve. Por enquanto, consulte manualmente em <a href="https://portalsouparceiro.intelbras.com.br" target="_blank" style="color:var(--green);font-weight:600">portalsouparceiro.intelbras.com.br</a>
+  <div class="cfg-sec">
+    <div class="cfg-sec-title">Formato das abas</div>
+    <div style="font-size:12px;color:var(--gray-700);line-height:1.8">
+      <b>REVENDA OURO:</b> CNPJ · Revenda<br>
+      <b>MONITORAMENTO:</b> CNPJ · RAZAO SOCIAL<br>
+      <b>REVENDA PME:</b> CNPJ · RAZÃO SOCIAL · NÍVEL DE ATENDIMENTO · DESCONTO AUTORIZADO<br>
+      <b>PORTARIA REMOTA:</b> CNPJ · RAZAO SOCIAL · NÍVEL DE ATENDIMENTO · DESCONTO AUTORIZADO<br>
+      <b>INCÊNDIO:</b> CNPJ · RAZAO SOCIAL<br>
+      <b>CONTAS ASSISTIDAS:</b> CNPJ · RAZAO SOCIAL
+    </div>
   </div>
 </div>`;
+}
+
+async function loadCNPJDB(){
+  const {data}=await sb.from('cnpj_programas').select('cnpj,nome,programa,nivel,desconto');
+  if(!data||!data.length){buildCNPJIndex();return;}
+  CNPJ_DB={contas_assistidas:{},ouro:{},monitoramento:{},pme:{},portaria_remota:{},incendio:{}};
+  data.forEach(r=>{
+    const c=r.cnpj;
+    if(r.programa==='contas_assistidas')CNPJ_DB.contas_assistidas[c]=r.nome;
+    else if(r.programa==='ouro')CNPJ_DB.ouro[c]=r.nome;
+    else if(r.programa==='monitoramento')CNPJ_DB.monitoramento[c]=r.nome;
+    else if(r.programa==='pme')CNPJ_DB.pme[c]={nome:r.nome,nivel:r.nivel||'1',desconto:r.desconto||0.08};
+    else if(r.programa==='portaria_remota')CNPJ_DB.portaria_remota[c]={nome:r.nome,nivel:r.nivel||'Nível 1',desconto:r.desconto||0.08};
+    else if(r.programa==='incendio')CNPJ_DB.incendio[c]=r.nome;
+  });
+  buildCNPJIndex();
+}
+
+async function importCNPJBase(e){
+  const file=e.target.files[0];if(!file)return;
+  loadXLSX(new Uint8Array(await file.arrayBuffer()),async rows=>{
+    // detect format: multi-sheet not possible here, so we need JSON or single sheet
+    // fallback: expect JSON
+    toast('Use o botão correto para Excel.',false);
+  });
+  // try as JSON first
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      await uploadCNPJFromJSON(data);
+    }catch(err){toast('Arquivo inválido: '+err.message,false);}
+  };
+  r.readAsText(file);
+}
+
+async function importCNPJExcel(e){
+  const file=e.target.files[0];if(!file)return;
+  const buf=await file.arrayBuffer();
+  loadXLSX(new Uint8Array(buf),async rows=>{
+    // This handles single-sheet: expects columns CNPJ, NOME, PROGRAMA, NIVEL, DESCONTO
+    if(!rows||rows.length<2){toast('Arquivo vazio.',false);return;}
+    const h=rows[0].map(x=>(x||'').toString().toLowerCase().trim());
+    const iC=h.findIndex(x=>x.includes('cnpj'));
+    const iN=h.findIndex(x=>x.includes('nome')||x.includes('razao')||x.includes('razão')||x.includes('revenda'));
+    const iP=h.findIndex(x=>x.includes('programa'));
+    const iL=h.findIndex(x=>x.includes('nivel')||x.includes('nível'));
+    const iD=h.findIndex(x=>x.includes('desconto'));
+    if(iC<0||iN<0){toast('Colunas CNPJ e Nome/Razão Social obrigatórias.',false);return;}
+    const toInsert=[];
+    rows.slice(1).forEach(row=>{
+      const cnpj=(row[iC]||'').toString().replace(/\D/g,'');
+      const nome=(row[iN]||'').toString().trim();
+      if(!cnpj||!nome)return;
+      const prog=iP>=0?(row[iP]||'').toString().trim().toLowerCase().replace(' ','_'):'monitoramento';
+      const nivel=iL>=0?(row[iL]||'').toString().trim()||null:null;
+      const desconto=iD>=0?parseFloat(row[iD])||null:null;
+      toInsert.push({cnpj,nome,programa:prog,nivel,desconto});
+    });
+    await uploadCNPJRows(toInsert);
+  });
+}
+
+async function uploadCNPJFromJSON(data){
+  const rows=[];
+  const map={contas_assistidas:'contas_assistidas',ouro:'ouro',monitoramento:'monitoramento',pme:'pme',portaria_remota:'portaria_remota',incendio:'incendio'};
+  for(const[prog,entries]of Object.entries(data)){
+    if(!map[prog])continue;
+    for(const[cnpj,val]of Object.entries(entries)){
+      const c=cnpj.replace(/\D/g,'');
+      const nome=typeof val==='string'?val:(val.nome||'');
+      const nivel=val.nivel||null;
+      const desconto=val.desconto||null;
+      rows.push({cnpj:c,nome,programa:map[prog],nivel,desconto});
+    }
+  }
+  await uploadCNPJRows(rows);
+}
+
+async function importCNPJMultiSheet(e){
+  const file=e.target.files[0];if(!file)return;
+  const buf=await file.arrayBuffer();
+  function _do(){
+    const wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    const sheetMap={
+      'REVENDA OURO':'ouro',
+      'MONITORAMENTO':'monitoramento',
+      'REVENDA PME':'pme',
+      'PORTARIA REMOTA':'portaria_remota',
+      'INCÊNDIO':'incendio',
+      'INCENDIO':'incendio',
+      'CONTAS ASSISTIDAS':'contas_assistidas'
+    };
+    const rows=[];
+    wb.SheetNames.forEach(sname=>{
+      const prog=sheetMap[sname.toUpperCase().trim()]||sheetMap[sname.trim()];
+      if(!prog)return;
+      const ws=wb.Sheets[sname];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!data||data.length<2)return;
+      const h=data[0].map(x=>(x||'').toString().toLowerCase().trim());
+      const iC=h.findIndex(x=>x.includes('cnpj'));
+      const iN=h.findIndex(x=>x.includes('razao')||x.includes('razão')||x.includes('revenda')||x.includes('nome'));
+      const iL=h.findIndex(x=>x.includes('nivel')||x.includes('nível'));
+      const iD=h.findIndex(x=>x.includes('desconto'));
+      if(iC<0||iN<0)return;
+      data.slice(1).forEach(row=>{
+        const cnpj=(row[iC]||'').toString().replace(/\D/g,'');
+        const nome=(row[iN]||'').toString().trim();
+        if(!cnpj||cnpj.length!==14||!nome)return;
+        const nivel=iL>=0?(row[iL]||'').toString().trim()||null:null;
+        const desconto=iD>=0?parseFloat(row[iD])||null:null;
+        rows.push({cnpj,nome,programa:prog,nivel,desconto});
+      });
+    });
+    if(!rows.length){toast('Nenhum registro encontrado no arquivo.',false);return;}
+    uploadCNPJRows(rows);
+  }
+  if(typeof XLSX!=='undefined'){_do();}
+  else{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=_do;s.onerror=()=>toast('Erro ao carregar leitor Excel.',false);document.head.appendChild(s);}
+}
+
+async function uploadCNPJRows(rows){
+  if(!rows.length){toast('Nenhum registro encontrado.',false);return;}
+  // delete all existing
+  await sb.from('cnpj_programas').delete().neq('id','00000000-0000-0000-0000-000000000000');
+  // insert in batches of 500
+  const batch=500;
+  for(let i=0;i<rows.length;i+=batch){
+    const {error}=await sb.from('cnpj_programas').insert(rows.slice(i,i+batch));
+    if(error){toast('Erro ao salvar: '+error.message,false);return;}
+  }
+  await loadCNPJDB();
+  render();
+  toast(`✅ Base atualizada: ${Object.keys(cnpjNameIndex).length.toLocaleString('pt-BR')} empresas`);
 }
 
 // ══════════════════════════════════════════════
