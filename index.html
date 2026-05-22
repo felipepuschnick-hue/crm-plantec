@@ -469,12 +469,10 @@ function render(){
   ta.innerHTML='';
   if(curView==='clientes'){
     if(curProfile.role==='gestor'){
-      // gestor pode ver todos ou filtrar por consultor
-      if(dashConsultor){
-        ta.innerHTML=`<button class="btn btn-sm" onclick="dashConsultor=null;render()">← Todos os consultores</button>`;
-      }
+      const consultores=cacheProfiles.filter(p=>p.role==='consultor'&&p.active);
+      const consOptions=`<option value="">Todos os consultores</option>${consultores.map(p=>`<option value="${p.id}" ${dashConsultor===p.id?'selected':''}>${p.full_name||p.username}</option>`).join('')}`;
+      ta.innerHTML=`<select style="width:auto;min-width:180px;font-size:13px" onchange="dashConsultor=this.value||null;render()">${consOptions}</select>`;
     } else {
-      // consultor tem botão configurar
       ta.innerHTML=`<button class="btn" onclick="openModal('config')">⚙ Configurar</button>`;
     }
     el.innerHTML=curClient?renderDetail():renderList();
@@ -793,11 +791,6 @@ function renderDashboardGestor(){
       <div style="flex:1">
         <div class="cons-name">${p.full_name||p.username}</div>
         <div class="cons-meta">${pClients.length} clientes · ${pClients.filter(c=>c.status==='carteira').length} carteira · ${pTasks.filter(t=>!t.done).length} tarefas pendentes${pTravadas>0?` · <span style="color:var(--amber)">${pTravadas} travadas</span>`:''}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-          <div style="font-size:11px;color:var(--gray-500)">Tarefas no prazo</div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}"></div></div>
-          <span style="font-size:11px;font-weight:700;color:${pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}">${pct}%</span>
-        </div>
       </div>
       <span style="font-size:12px;color:var(--green)">Ver clientes →</span>
     </div>`;
