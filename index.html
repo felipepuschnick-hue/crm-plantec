@@ -1033,6 +1033,18 @@ async function importProdutos(e){
   });};r.readAsArrayBuffer(file);
 }
 
+// converte '21/05/2026, 15:27' ou '21/05/2026 15:27' para ISO string
+function parseOfflineDate(str){
+  if(!str)return null;
+  try{
+    // format: DD/MM/YYYY, HH:MM or DD/MM/YYYY HH:MM
+    const clean=str.replace(',','').trim();
+    const parts=clean.split(' ');
+    const [d,m,y]=parts[0].split('/');
+    const time=parts[1]||'00:00';
+    return new Date(`${y}-${m}-${d}T${time}:00`).toISOString();
+  }catch(e){return new Date().toISOString();}
+}
 async function importOfflineBackup(e){
   const file=e.target.files[0];if(!file)return;
   const targetUserId=document.getElementById('cfg-cons')?.value;
@@ -1046,17 +1058,33 @@ async function importOfflineBackup(e){
       for(const c of clients){
         const cnpj=c.cnpj?c.cnpj.replace(/\D/g,''):'';
         if(cnpj&&cacheClients.find(x=>x.cnpj&&x.cnpj.replace(/\D/g,'')===cnpj))continue;
-        const {data:client}=await sb.from('clients').insert({user_id:targetUserId,name:c.name,cnpj:c.cnpj||'',site:c.site||'',segment:c.segment||'',origem:c.origem||'',contact:c.contact||'',cargo:c.cargo||'',phone:c.phone||'',cod_gestao:c.codGestao||'',status:c.status||'prospecto',temp:c.temp||'',is_new_lead:false}).select().single();
+        const {data:client}=await sb.from('clients').insert({
+          user_id:targetUserId,name:c.name,cnpj:c.cnpj||'',site:c.site||'',
+          segment:c.segment||'',origem:c.origem||'',contact:c.contact||'',
+          cargo:c.cargo||'',phone:c.phone||'',cod_gestao:c.codGestao||'',
+          status:c.status||'prospecto',temp:c.temp||'',is_new_lead:c.isNewLead||false
+        }).select().single();
         if(!client)continue;
         cacheClients.unshift(client);
         // tasks
         if(c.tasks&&c.tasks.length){
-          const tins=c.tasks.map(t=>({client_id:client.id,user_id:targetUserId,text:t.text,priority:t.priority||'',due:t.due||null,done:t.done||false,done_at:t.doneAt||null,is_checklist:t.isChecklist||false}));
+          const tins=c.tasks.map(t=>({
+            client_id:client.id,user_id:targetUserId,
+            text:t.text,priority:t.priority||'',
+            due:t.due||null,done:t.done||false,
+            done_at:t.doneAt?parseOfflineDate(t.doneAt):null,
+            is_checklist:t.isChecklist||false,
+            created_at:t.createdAt?parseOfflineDate(t.createdAt):new Date().toISOString()
+          }));
           const {data:nt}=await sb.from('tasks').insert(tins).select();if(nt)cacheTasks.push(...nt);
         }
         // notes
         if(c.notes&&c.notes.length){
-          const nins=c.notes.map(n=>({client_id:client.id,user_id:curProfile.id,text:n.text}));
+          const nins=c.notes.map(n=>({
+            client_id:client.id,user_id:curProfile.id,
+            text:n.text,
+            created_at:n.date?parseOfflineDate(n.date):new Date().toISOString()
+          }));
           const {data:nn}=await sb.from('notes').insert(nins).select();if(nn)cacheNotes.push(...nn);
         }
         added++;
