@@ -402,7 +402,7 @@ function buildNav(){
       const firstKey=subList[0]?.key||n.key;
       const isOpen=subList.some(s=>inGroup(s.key));
       const isActive=subList.some(s=>inGroup(s.key))||curView===n.key;
-      const clickAction=isOpen?`sidebarExpandedKey=null;navTo('${firstKey}')`:`sidebarExpandedKey='${n.key}';navTo('${firstKey}')`;
+      const clickAction=isOpen?`toggleSidebarGroup('${n.key}')`:`sidebarExpandedKey='${n.key}';navTo('${firstKey}')`;
       return`<div><button class="sbi ${isActive?'active':''}" onclick="${clickAction}"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label} ${isOpen?'▾':'▸'}</span></button>${isOpen?`<div style="padding:2px 0 2px 28px">${subList.map(s=>`<button class="sbi ${curView===s.key?'active':''}" onclick="sidebarExpandedKey='${n.key}';navTo('${s.key}')" style="font-size:12px;padding:6px 10px"><span class="sbi-label">${s.label}</span></button>`).join('')}</div>`:''}</div>`;
     }
     return`<button class="sbi ${curView===n.key?'active':''}" onclick="sidebarExpandedKey=null;navTo('${n.key}')"><span class="sbi-icon">${n.icon}</span><span class="sbi-label">${n.label}</span></button>`;
@@ -421,6 +421,7 @@ function navTo(v){
   buildNav();render();
 }
 function toggleSidebar(){sidebarCol=!sidebarCol;document.getElementById('sidebar').classList.toggle('col',sidebarCol);document.querySelector('.sb-toggle').textContent=sidebarCol?'▶':'◀';}
+function toggleSidebarGroup(key){sidebarExpandedKey=sidebarExpandedKey===key?null:key;buildNav();}
 
 // ══════════════════════════════════════════════
 // DATA LAYER
