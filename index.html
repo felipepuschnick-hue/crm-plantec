@@ -273,7 +273,8 @@ const sb=createClient(SB_URL,SB_KEY);
 let curUser=null,curProfile=null;
 let curView='clientes',curClient=null,crmFilter='prospecto',segAtivo='monitoramento';
 let sidebarCol=false,tvSearch='',tvFilter='todas',tvShowDone=false,tvTimer=null;
-let dashConsultor=null; // gestor: consultor selecionado para drill-down
+let dashConsultor=null;
+let dashConsultorFilter='todos';
 
 // cache
 let cacheClients=[],cacheTasks=[],cacheNotes=[],cacheProdutos=[];
@@ -345,12 +346,12 @@ function buildNav(){
   const isGestor=curProfile.role==='gestor';
   const navItems=isGestor?[
     {key:'dashboard',icon:'📊',label:'Dashboard'},
-    {key:'consultores',icon:'👤',label:'Consultores'},
     {key:'clientes',icon:'👥',label:'Clientes'},
     {key:'tarefas',icon:'✅',label:'Tarefas'},
     {key:'practices',icon:'📋',label:'Melhores Práticas'},
     {key:'config',icon:'⚙',label:'Configurar'},
   ]:[
+    {key:'dashboard',icon:'📊',label:'Dashboard'},
     {key:'clientes',icon:'👥',label:'Clientes'},
     {key:'tarefas',icon:'✅',label:'Tarefas'},
     {key:'practices',icon:'📋',label:'Melhores Práticas'},
@@ -360,7 +361,7 @@ function buildNav(){
 
 function navTo(v){
   curView=v;curClient=null;dashConsultor=null;
-  const labels={dashboard:'Dashboard',consultores:'Consultores',clientes:'Clientes',tarefas:'Tarefas',practices:'Melhores Práticas',config:'Configurar'};
+  const labels={dashboard:'Dashboard',clientes:'Clientes',tarefas:'Tarefas',practices:'Melhores Práticas',config:'Configurar'};
   document.getElementById('topbar-title').textContent=labels[v]||'';
   buildNav();render();
 }
@@ -419,8 +420,7 @@ function render(){
   }
   else if(curView==='tarefas') el.innerHTML=renderTarefas();
   else if(curView==='practices') el.innerHTML=renderPractices(segAtivo);
-  else if(curView==='dashboard') el.innerHTML=renderDashboard();
-  else if(curView==='consultores') el.innerHTML=renderConsultores();
+  else if(curView==='dashboard') el.innerHTML=curProfile.role==='gestor'?renderDashboardGestor():renderDashboardConsultor();
   else if(curView==='config') el.innerHTML=renderConfig();
 }
 
@@ -619,23 +619,20 @@ function goToClient(id){curView='clientes';curClient=id;buildNav();render();}
 // ══════════════════════════════════════════════
 // DASHBOARD (GESTOR)
 // ══════════════════════════════════════════════
-function renderDashboard(){
-  const all=cacheClients;
-  const allT=cacheTasks;
+function renderDashboardGestor(){
   const now=new Date();
   const sevenDaysAgo=new Date(now-7*864e5);
-
-  // Indicadores gerais
+  const todayStr=now.toISOString().slice(0,10);
+  const consultores=cacheProfiles.filter(p=>p.role==='consultor'&&p.active);
+  const selCons=dashConsultorFilter||'todos';
+  const all=selCons==='todos'?cacheClients:cacheClients.filter(c=>c.user_id===selCons);
+  const allT=selCons==='todos'?cacheTasks:cacheTasks.filter(t=>all.some(c=>c.id===t.client_id));
   const totalClients=all.length;
   const totalProspecto=all.filter(c=>c.status==='prospecto').length;
   const totalCarteira=all.filter(c=>c.status==='carteira').length;
   const totalDescarte=all.filter(c=>c.status==='inativo').length;
   const taxaConversao=totalClients>0?Math.round(totalCarteira/totalClients*100):0;
-
-  // Tarefas
-  const tarefasConcluidas=allT.filter(t=>t.done&&!t.is_checklist);
-  const noPrazo=tarefasConcluidas.filter(t=>!t.due||new Date(t.done_at||0)<=new Date(t.due+'T23:59:59')).length;
-  const pctNoPrazo=tarefasConcluidas.length>0?Math.round(noPrazo/tarefasConcluidas.length*100):0;
+  const hoje=allT.filter(t=>t.done&&t.done_at&&t.done_at.slice(0,10)===todayStr).length;
   const travadas=allT.filter(t=>!t.done&&!t.is_checklist&&t.updated_at&&new Date(t.updated_at)<sevenDaysAgo).length;
 
   // Checklist por segmento
@@ -651,10 +648,15 @@ function renderDashboard(){
   // Por consultor
   const consultores=cacheProfiles.filter(p=>p.role==='consultor'&&p.active);
 
-  return`<div class="dash-grid">
+  const consOptions=`<option value="todos">Todos os consultores</option>${consultores.map(p=>`<option value="${p.id}" ${selCons===p.id?'selected':''}>${p.full_name||p.username}</option>`).join('')}`;
+  return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
+  <div style="font-size:15px;font-weight:600">Dashboard</div>
+  <select style="width:auto;min-width:200px;font-size:13px" onchange="dashConsultorFilter=this.value;render()">${consOptions}</select>
+</div>
+<div class="dash-grid">
   <div class="dash-card"><div class="dash-num">${totalClients}</div><div class="dash-label">Total de clientes</div><div class="dash-sub">${totalProspecto} prospects · ${totalCarteira} carteira</div></div>
   <div class="dash-card"><div class="dash-num" style="color:var(--green)">${taxaConversao}%</div><div class="dash-label">Taxa de conversão</div><div class="dash-sub">Prospect → Carteira</div></div>
-  <div class="dash-card"><div class="dash-num" style="color:${pctNoPrazo>=70?'var(--green)':pctNoPrazo>=40?'var(--amber)':'var(--red)'}">${pctNoPrazo}%</div><div class="dash-label">Tarefas no prazo</div><div class="dash-sub">${noPrazo} de ${tarefasConcluidas.length} concluídas</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${hoje>0?'var(--green)':'var(--gray-500)'}">${hoje}</div><div class="dash-label">Tarefas realizadas hoje</div><div class="dash-sub">${todayStr.split('-').reverse().join('/')}</div></div>
   <div class="dash-card"><div class="dash-num" style="color:${travadas===0?'var(--green)':'var(--amber)'}">${travadas}</div><div class="dash-label">Tarefas travadas</div><div class="dash-sub">Sem movimentação +7 dias</div></div>
 </div>
 
@@ -664,8 +666,8 @@ function renderDashboard(){
     <div class="funnel-bar">
       ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}
     </div>
-    <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
-      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
+    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Frio',v:all.filter(c=>c.temp==='frio'&&c.status==='prospecto').length,c:'#378ADD'},{l:'Morno',v:all.filter(c=>c.temp==='morno'&&c.status==='prospecto').length,c:'#EF9F27'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
     </div>
   </div>
   <div class="card">
@@ -712,6 +714,47 @@ function drillConsultor(uid){dashConsultor=uid;curView='clientes';buildNav();ren
 // ══════════════════════════════════════════════
 // CONSULTORES (GESTOR)
 // ══════════════════════════════════════════════
+function renderDashboardConsultor(){
+  const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
+  const myClients=cacheClients.filter(c=>c.user_id===curProfile.id);
+  const myTasks=cacheTasks.filter(t=>myClients.some(c=>c.id===t.client_id));
+  const hoje=myTasks.filter(t=>t.done&&t.done_at&&t.done_at.slice(0,10)===todayStr).length;
+  const pendentes=myTasks.filter(t=>!t.done).length;
+  const atrasadas=myTasks.filter(t=>!t.done&&isOverdue(t.due)).length;
+  const clTasks=myTasks.filter(t=>t.is_checklist);
+  const clDone=clTasks.filter(t=>t.done).length;
+  const pctCl=clTasks.length>0?Math.round(clDone/clTasks.length*100):0;
+  const fFrio=myClients.filter(c=>c.status==='prospecto'&&c.temp==='frio').length;
+  const fMorno=myClients.filter(c=>c.status==='prospecto'&&c.temp==='morno').length;
+  const fQuente=myClients.filter(c=>c.status==='prospecto'&&c.temp==='quente').length;
+  const fCarteira=myClients.filter(c=>c.status==='carteira').length;
+  const fDescarte=myClients.filter(c=>c.status==='inativo').length;
+  const fProspecto=myClients.filter(c=>c.status==='prospecto').length;
+  const proximas=myTasks.filter(t=>!t.done&&t.due).sort((a,b)=>new Date(a.due)-new Date(b.due)).slice(0,5);
+  const recentes=myClients.slice(0,5);
+  return`<div class="dash-grid">
+  <div class="dash-card"><div class="dash-num" style="color:${hoje>0?'var(--green)':'var(--gray-500)'}">${hoje}</div><div class="dash-label">Tarefas realizadas hoje</div><div class="dash-sub">${now.toLocaleDateString('pt-BR')}</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${pendentes>0?'var(--amber)':'var(--green)'}">${pendentes}</div><div class="dash-label">Tarefas pendentes</div><div class="dash-sub">${atrasadas>0?'⚠ '+atrasadas+' atrasada'+(atrasadas>1?'s':''):''}</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${atrasadas>0?'var(--red)':'var(--green)'}">${atrasadas}</div><div class="dash-label">Tarefas atrasadas</div><div class="dash-sub">Vencimento ultrapassado</div></div>
+  <div class="dash-card"><div class="dash-num" style="color:${pctCl>=70?'var(--green)':pctCl>=40?'var(--amber)':'var(--red)'}">${pctCl}%</div><div class="dash-label">Checklist concluído</div><div class="dash-sub">${clDone} de ${clTasks.length} tarefas</div></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
+  <div class="card">
+    <div class="section-label">Funil de clientes</div>
+    <div class="funnel-bar" style="margin-bottom:10px">${[{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'var(--green)'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}</div>
+    ${[{l:'Prospect',v:fProspecto,c:'#5DCAA5'},{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'var(--green)'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-200);font-size:13px"><div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l}</div><strong>${s.v}</strong></div>`).join('')}
+  </div>
+  <div class="card">
+    <div class="section-label">Próximas tarefas</div>
+    ${proximas.length===0?`<div class="empty-state" style="padding:.75rem">Nenhuma tarefa com prazo.</div>`:proximas.map(t=>{const c=myClients.find(x=>x.id===t.client_id)||{};const dl=daysLeft(t.due);const ov=isOverdue(t.due);return`<div style="padding:7px 0;border-bottom:1px solid var(--gray-200);cursor:pointer" onclick="goToClient('${t.client_id}')"><div style="font-size:11px;font-weight:600;color:var(--gray-500)">${c.name||'?'}</div><div style="font-size:13px;margin:2px 0">${t.text}</div><span class="tv-due ${ov?'red':dl<=1?'amber':'gray'}" style="font-size:11px">📅 ${ov?'Atrasada':dl===0?'Hoje':dl===1?'Amanhã':dateStr(t.due)}</span></div>`;}).join('')}
+  </div>
+</div>
+<div class="card">
+  <div class="section-label">Clientes recentes</div>
+  ${recentes.length===0?`<div class="empty-state">Nenhum cliente ainda.</div>`:recentes.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gray-200);cursor:pointer" onclick="curView='clientes';curClient='${c.id}';buildNav();render()"><div style="flex:1"><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--gray-500)">${c.segment||''}</div></div>${c.temp?`<span class="badge badge-${c.temp}">${c.temp.charAt(0).toUpperCase()+c.temp.slice(1)}</span>`:''}${c.status==='carteira'?`<span class="badge badge-carteira">Carteira</span>`:''}</div>`).join('')}
+</div>`;
+}
 function renderConsultores(){
   const consultores=cacheProfiles.filter(p=>p.role==='consultor');
   return`<div style="margin-bottom:1.25rem">
@@ -740,7 +783,7 @@ ${consultores.length===0?`<div class="empty-state">Nenhum consultor cadastrado a
 // ══════════════════════════════════════════════
 // CONFIG (GESTOR)
 // ══════════════════════════════════════════════
-function renderConfig(){
+function renderConfig(){const isGestor=curProfile.role==='gestor';
   return`<div class="cfg-sec">
   <div class="cfg-sec-title">1. Enviar Leads para Consultor</div>
   <div class="cfg-sec-sub">Importe Excel no formato padrão (CNPJ, Nome da Empresa, Site, Segmento, Origem do Lead, Contato, Telefone, Codigo Gestao). Selecione o consultor antes de subir o arquivo.</div>
@@ -766,6 +809,27 @@ function renderConfig(){
   <div class="cfg-sec-title">3. Importar backup offline</div>
   <div class="cfg-sec-sub">Suba o JSON exportado pelo app offline. Os dados serão importados para o consultor selecionado acima.</div>
   <label class="btn" style="cursor:pointer">📂 Selecionar JSON<input type="file" accept=".json" style="display:none" onchange="importOfflineBackup(event)"></label>
+</div>
+${isGestor?renderConsultoresSection():''}
+`;
+}
+
+function renderConsultoresSection(){
+  const cons=cacheProfiles.filter(p=>p.role==='consultor');
+  return`<div class="cfg-sec">
+  <div class="cfg-sec-title">4. Gerenciar Consultores</div>
+  <div class="cfg-sec-sub">Consultores cadastrados no sistema.</div>
+  ${cons.length===0?`<div style="font-size:13px;color:var(--gray-500);padding:.5rem 0">Nenhum consultor cadastrado.</div>`:cons.map(p=>`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--gray-200)">
+    <div class="cons-avatar">${initials(p.full_name||p.username)}</div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.full_name||p.username}</div>
+    <div style="font-size:11px;color:var(--gray-500)">@${p.username} · <span style="color:${p.active?'var(--green)':'var(--red)'}">${p.active?'Ativo':'Inativo'}</span></div></div>
+    <button class="btn btn-sm" onclick="openModal('editConsultor','${p.id}')">✏ Editar</button>
+  </div>`).join('')}
+  <div style="background:var(--green-light);border:1px solid var(--green-mid);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--green-text);margin-top:12px;line-height:1.8">
+    <b>➕ Novo consultor:</b> Supabase → Authentication → Users → Add user · Email: usuario@plantec.internal · Marque Auto Confirm ✅<br>
+    Depois rode no SQL Editor:<br>
+    <code style="background:rgba(0,0,0,.1);padding:2px 5px;border-radius:3px;font-size:11px">INSERT INTO public.profiles(id,username,full_name,role,active) SELECT id,'usuario','Nome Completo','consultor',true FROM auth.users WHERE email='usuario@plantec.internal';</code>
+  </div>
 </div>`;
 }
 
@@ -1073,19 +1137,21 @@ async function importOfflineBackup(e){
             text:t.text,priority:t.priority||'',
             due:t.due||null,done:t.done||false,
             done_at:t.doneAt?parseOfflineDate(t.doneAt):null,
-            is_checklist:t.isChecklist||false,
-            created_at:t.createdAt?parseOfflineDate(t.createdAt):new Date().toISOString()
+            is_checklist:t.isChecklist||false
           }));
-          const {data:nt}=await sb.from('tasks').insert(tins).select();if(nt)cacheTasks.push(...nt);
+          const {data:nt,error:te}=await sb.from('tasks').insert(tins).select();
+          if(te)console.error('tasks error',te.message);
+          if(nt)cacheTasks.push(...nt);
         }
         // notes
         if(c.notes&&c.notes.length){
           const nins=c.notes.map(n=>({
             client_id:client.id,user_id:curProfile.id,
-            text:n.text,
-            created_at:n.date?parseOfflineDate(n.date):new Date().toISOString()
+            text:n.text
           }));
-          const {data:nn}=await sb.from('notes').insert(nins).select();if(nn)cacheNotes.push(...nn);
+          const {data:nn,error:ne}=await sb.from('notes').insert(nins).select();
+          if(ne)console.error('notes error',ne.message);
+          if(nn)cacheNotes.push(...nn);
         }
         added++;
       }
