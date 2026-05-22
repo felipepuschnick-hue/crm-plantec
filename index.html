@@ -298,7 +298,7 @@ const sb=createClient(SB_URL,SB_KEY);
 // STATE
 // ══════════════════════════════════════════════
 let curUser=null,curProfile=null;
-let curView='clientes',curClient=null,crmFilter='prospecto',segAtivo='monitoramento';
+let curView='clientes',curClient=null,crmStatusFilter='todos',crmTempFilter='',segAtivo='monitoramento';
 let sidebarCol=false,tvSearch='',tvFilter='todas',tvTimer=null;
 let dashConsultor=null;
 let dashConsultorFilter='todos';
@@ -415,7 +415,7 @@ function buildNav(){
 }
 
 function navTo(v){
-  curView=v;curClient=null;dashConsultor=null;
+  curView=v;curClient=null;dashConsultor=null;crmStatusFilter='todos';crmTempFilter='';
   // auto-expand parent if navigating to sub-item
   // auto-set expandedKey when navigating to sub-items
   const _pg={'proj-dash':'proj','projetos':'proj','camp-voce':'camp','camp-clientes':'camp','cnpj':'cnpj','cnpj-atualizar':'cnpj'};
@@ -506,29 +506,46 @@ const CHECKLISTS={
 function renderList(){
   let all=cacheClients;
   if(curProfile.role==='gestor'&&dashConsultor) all=all.filter(c=>c.user_id===dashConsultor);
+
+  // apply filters independently
   const filtered=all.filter(c=>{
-    if(crmFilter==='frio') return c.temp==='frio'&&c.status==='prospecto';
-    if(crmFilter==='morno') return c.temp==='morno'&&c.status==='prospecto';
-    if(crmFilter==='quente') return c.temp==='quente'&&c.status==='prospecto';
-    if(crmFilter==='prospecto') return c.status==='prospecto';
-    if(crmFilter==='carteira') return c.status==='carteira';
-    if(crmFilter==='descarte') return c.status==='inativo';
-    return true;
+    const statusOk=
+      crmStatusFilter==='todos'   ? true :
+      crmStatusFilter==='prospecto'? c.status==='prospecto' :
+      crmStatusFilter==='carteira' ? c.status==='carteira' :
+      crmStatusFilter==='descarte' ? c.status==='inativo' : true;
+    const tempOk=
+      !crmTempFilter ? true :
+      crmTempFilter==='frio'   ? c.temp==='frio' :
+      crmTempFilter==='morno'  ? c.temp==='morno' :
+      crmTempFilter==='quente' ? c.temp==='quente' : true;
+    return statusOk && tempOk;
   });
+
   const ot=all.reduce((a,c)=>a+clientTasks(c.id).filter(t=>!t.done&&isOverdue(t.due)).length,0);
-  const addBtn=curProfile.role==='gestor'?`<button class="btn btn-green" onclick="openModal('addClient')">+ Novo cliente</button>`:`<button class="btn btn-green" onclick="openModal('addClient')">+ Novo cliente</button>`;
   return`<div class="stats-grid">
   <div class="stat-card"><div class="stat-num">${all.length}</div><div class="stat-label">Total</div></div>
-  <div class="stat-card"><div class="stat-num" style="color:var(--green)">${all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length}</div><div class="stat-label">Quentes</div></div>
-  <div class="stat-card"><div class="stat-num" style="color:var(--green-dark)">${all.filter(c=>c.status==='carteira').length}</div><div class="stat-label">Carteira</div></div>
+  <div class="stat-card"><div class="stat-num" style="color:var(--green-dark)">${all.filter(c=>c.status==='prospecto').length}</div><div class="stat-label">Prospects</div></div>
+  <div class="stat-card"><div class="stat-num" style="color:#1D9E75">${all.filter(c=>c.temp==='quente').length}</div><div class="stat-label">Quentes</div></div>
+  <div class="stat-card"><div class="stat-num" style="color:var(--sidebar)">${all.filter(c=>c.status==='carteira').length}</div><div class="stat-label">Carteira</div></div>
   ${ot>0?`<div class="stat-card"><div class="stat-num" style="color:var(--red)">${ot}</div><div class="stat-label">Atrasadas</div></div>`:''}
 </div>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;gap:8px">
-  <div class="filter-row" style="margin-bottom:0">
-    ${['prospecto','frio','morno','quente','carteira','descarte'].map(f=>`<button class="filter-chip ${crmFilter===f?'active':''}" onclick="setFilter('${f}')">${f==='prospecto'?'Prospect':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;flex-wrap:wrap;gap:10px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;width:60px">Status</span>
+      ${['todos','prospecto','carteira','descarte'].map(f=>`<button class="filter-chip ${crmStatusFilter===f?'active':''}" onclick="setCrmStatusFilter('${f}')">${f==='todos'?'Todos os Clientes':f==='prospecto'?'Prospect':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em;width:60px">Temp.</span>
+      <button class="filter-chip ${!crmTempFilter?'active':''}" onclick="setCrmTempFilter('')">Todos</button>
+      ${['frio','morno','quente'].map(f=>`<button class="filter-chip ${crmTempFilter===f?'active':''}" onclick="setCrmTempFilter('${f}')">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+    </div>
   </div>
-  ${addBtn}
+  <button class="btn btn-green" onclick="openModal('addClient')">+ Novo cliente</button>
 </div>
+
 ${filtered.length===0?`<div class="empty-state">Nenhum cliente nessa categoria.</div>`:filtered.map(c=>{
   const ov=clientTasks(c.id).filter(t=>!t.done&&isOverdue(t.due)).length;
   const cp=checklistP(c.id);
@@ -537,7 +554,7 @@ ${filtered.length===0?`<div class="empty-state">Nenhum cliente nessa categoria.<
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
     <div><div style="font-size:15px;font-weight:600">${c.name}${consName} ${c.is_new_lead?'<span class="new-lead-badge">NOVO LEAD</span>':''}</div><div style="font-size:12px;color:var(--gray-500);margin-top:2px">${[c.segment,c.contact].filter(Boolean).join(' · ')}</div></div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;align-items:center">
-      ${c.status==='carteira'?`<span class="badge badge-carteira">Carteira</span>`:c.status==='inativo'?`<span class="badge badge-inativo">Descarte</span>`:''}
+      ${c.status==='carteira'?`<span class="badge badge-carteira">Carteira</span>`:c.status==='inativo'?`<span class="badge badge-inativo">Descarte</span>`:`<span class="badge badge-seg">Prospect</span>`}
       ${c.temp?`<span class="badge badge-${c.temp}">${c.temp.charAt(0).toUpperCase()+c.temp.slice(1)}</span>`:''}
       ${ov>0?`<span class="pb ph">⚠ ${ov} atrasada${ov>1?'s':''}</span>`:''}
     </div>
@@ -546,7 +563,8 @@ ${filtered.length===0?`<div class="empty-state">Nenhum cliente nessa categoria.<
   ${c.cnpj||c.segment?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;align-items:center">${c.cnpj?`<span style="font-size:11px;color:var(--gray-500)">CNPJ: ${c.cnpj}</span>`:''} ${c.segment?`<span class="badge badge-seg">${c.segment}</span>`:''}</div>`:''}
 </div>`;}).join('')}`;
 }
-function setFilter(f){crmFilter=f;render();}
+function setCrmStatusFilter(f){crmStatusFilter=f;render();}
+function setCrmTempFilter(f){crmTempFilter=f;render();}
 function openClient(id){curClient=id;render();}
 
 // ══════════════════════════════════════════════
@@ -596,7 +614,12 @@ function renderDetail(){
       <button class="thermo-btn ${c.temp==='morno'?'sel-morno':''}" onclick="setTemp('${c.id}','morno')">☀ Morno</button>
       <button class="thermo-btn ${c.temp==='quente'?'sel-quente':''}" onclick="setTemp('${c.id}','quente')">🔥 Quente</button>
     </div>
-    ${c.status!=='carteira'&&c.status!=='inativo'?`<div class="status-actions"><button class="btn btn-sm btn-green" onclick="setStatus('${c.id}','carteira')">✓ Avançar para carteira</button><button class="btn btn-sm btn-danger" onclick="setStatus('${c.id}','inativo')">Enviar para descarte</button></div>`:''}`:''
+    <div class="section-label" style="margin-top:.75rem">Status</div>
+    <div class="status-actions">
+      ${c.status!=='prospecto'?`<button class="btn btn-sm" onclick="setStatus('${c.id}','prospecto')">↩ Voltar para Prospect</button>`:'<span style="font-size:12px;font-weight:600;color:var(--gray-500)">● Prospect</span>'}
+      ${c.status!=='carteira'?`<button class="btn btn-sm btn-green" onclick="setStatus('${c.id}','carteira')">✓ Mover para Carteira</button>`:'<span style="font-size:12px;font-weight:600;color:var(--green)">● Carteira</span>'}
+      ${c.status!=='inativo'?`<button class="btn btn-sm btn-danger" onclick="setStatus('${c.id}','inativo')">Enviar para Descarte</button>`:'<span style="font-size:12px;font-weight:600;color:var(--gray-500)">● Descarte</span>'}
+    </div>`:''
     }
   </div>
 
@@ -728,11 +751,19 @@ function renderDashboardGestor(){
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
   <div class="card">
     <div class="section-label">Funil de clientes</div>
-    <div class="funnel-bar">
-      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:4px">Status</div>
+    <div class="funnel-bar" style="margin-bottom:6px">
+      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}
     </div>
-    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Frio',v:all.filter(c=>c.temp==='frio'&&c.status==='prospecto').length,c:'#378ADD'},{l:'Morno',v:all.filter(c=>c.temp==='morno'&&c.status==='prospecto').length,c:'#EF9F27'},{l:'Quente',v:all.filter(c=>c.temp==='quente'&&c.status==='prospecto').length,c:'#1D9E75'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${[{l:'Prospect',v:totalProspecto,c:'#5DCAA5'},{l:'Carteira',v:totalCarteira,c:'#085041'},{l:'Descarte',v:totalDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:12px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:4px">Temperatura</div>
+    <div class="funnel-bar" style="margin-bottom:6px">
+      ${[{l:'Frio',v:all.filter(c=>c.temp==='frio').length,c:'#378ADD'},{l:'Morno',v:all.filter(c=>c.temp==='morno').length,c:'#EF9F27'},{l:'Quente',v:all.filter(c=>c.temp==='quente').length,c:'#1D9E75'},{l:'Sem temp.',v:all.filter(c=>!c.temp).length,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${[{l:'Frio',v:all.filter(c=>c.temp==='frio').length,c:'#378ADD'},{l:'Morno',v:all.filter(c=>c.temp==='morno').length,c:'#EF9F27'},{l:'Quente',v:all.filter(c=>c.temp==='quente').length,c:'#1D9E75'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:12px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
     </div>
   </div>
   <div class="card">
@@ -807,8 +838,15 @@ function renderDashboardConsultor(){
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem">
   <div class="card">
     <div class="section-label">Funil de clientes</div>
-    <div class="funnel-bar" style="margin-bottom:10px">${[{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'var(--green)'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}</div>
-    ${[{l:'Prospect',v:fProspecto,c:'#5DCAA5'},{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'var(--green)'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--gray-200);font-size:13px"><div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l}</div><strong>${s.v}</strong></div>`).join('')}
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:4px">Status</div>
+    <div class="funnel-bar" style="margin-bottom:6px">${[{l:'Prospect',v:fProspecto,c:'#5DCAA5'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${[{l:'Prospect',v:fProspecto,c:'#5DCAA5'},{l:'Carteira',v:fCarteira,c:'#085041'},{l:'Descarte',v:fDescarte,c:'#d0d5dd'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:12px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
+    </div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-500);margin-bottom:4px">Temperatura</div>
+    <div class="funnel-bar" style="margin-bottom:6px">${[{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'#1D9E75'},{l:'Sem temp.',v:myClients.filter(c=>!c.temp).length,c:'#d0d5dd'}].map(s=>`<div class="funnel-seg" style="flex:${s.v||0.1};background:${s.c}" title="${s.l}: ${s.v}">${s.v>0?s.v:''}</div>`).join('')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${[{l:'Frio',v:fFrio,c:'#378ADD'},{l:'Morno',v:fMorno,c:'#EF9F27'},{l:'Quente',v:fQuente,c:'#1D9E75'}].map(s=>`<div style="display:flex;align-items:center;gap:4px;font-size:12px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <strong>${s.v}</strong></div>`).join('')}
   </div>
   <div class="card">
     <div class="section-label">Próximas tarefas</div>
@@ -1421,9 +1459,10 @@ function openModal(type,id){
 <div class="form-row" style="margin-bottom:10px"><div class="form-group"><label>Telefone / e-mail</label><input id="m-phone" value="${c.phone||''}"></div><div class="form-group"><label>Código Gestão</label><input id="m-codgest" value="${c.cod_gestao||''}"></div></div>
 <div class="modal-actions"><button class="btn btn-danger" style="margin-right:auto" onclick="deleteClient('${id}')">Remover</button><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitEditClient('${id}')">Salvar</button></div>`;}
   else if(type==='addTask'){
+    const todayMin=new Date().toISOString().slice(0,10);
     box.innerHTML=`<div class="modal-title">Nova tarefa</div>
 <div class="form-group"><label>Descrição *</label><input id="t-text" placeholder="Ex: Enviar proposta comercial"></div>
-<div class="form-row"><div class="form-group"><label>Prioridade</label><select id="t-prio"><option value="">Sem prioridade</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select></div><div class="form-group"><label>Data limite</label><input id="t-due" type="date"></div></div>
+<div class="form-row"><div class="form-group"><label>Prioridade</label><select id="t-prio"><option value="">Sem prioridade</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select></div><div class="form-group"><label>Data limite</label><input id="t-due" type="date" min="${todayMin}"></div></div>
 <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="submitTask('${id}')">Adicionar</button></div>`;}
 
   else if(type==='editConsultor'){
